@@ -1,0 +1,16 @@
+pandas
+numpy
+seaborn
+google-auth
+pyspark
+pyarrow
+google-cloud-bigquery
+dbutils
+db-dtypes
+ibis-framework[bigquery,sqlite]
+pygithub
+requests_cache
+jinja2
+jupyterlab
+jupyter
+tqdm
