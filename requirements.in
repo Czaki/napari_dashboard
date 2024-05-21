@@ -14,3 +14,4 @@ jinja2
 jupyterlab
 jupyter
 tqdm
+pypistats[numpy,pandas]
