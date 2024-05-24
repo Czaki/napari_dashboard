@@ -5,6 +5,7 @@ from sqlalchemy import func, null
 from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.github import (
+    Issues,
     Labels,
     PullRequests,
     Repository,
@@ -107,6 +108,30 @@ def count_recent_pull_requests(
     )
 
 
+def count_recent_closed_issues(
+    user: str, repo: str, session: Session, since: datetime.datetime
+) -> int:
+    # get all contributors with number of pull requests
+    repo_model = get_repo_model(user, repo, session)
+    return (
+        session.query(Issues)
+        .filter(Issues.repository == repo_model.id, Issues.close_time > since)
+        .count()
+    )
+
+
+def count_recent_opened_issues(
+    user: str, repo: str, session: Session, since: datetime.datetime
+) -> int:
+    # get all contributors with number of pull requests
+    repo_model = get_repo_model(user, repo, session)
+    return (
+        session.query(Issues)
+        .filter(Issues.repository == repo_model.id, Issues.open_time > since)
+        .count()
+    )
+
+
 def count_recent_pull_requests_by_label(
     user: str,
     repo: str,
@@ -201,4 +226,10 @@ def generate_basic_stats(
     return pr_stats | {
         "labels": label_stat,
         "active_contributors": len(active_contributors),
+        "closed_issues": count_recent_closed_issues(
+            user, repo, session, since
+        ),
+        "opened_issues": count_recent_opened_issues(
+            user, repo, session, since
+        ),
     }

@@ -375,8 +375,31 @@
               <th scope="col">napari-plugin-manager</th>
             </tr>
           </thead>
-          <tbody id="download_table">
-          {% for key, value in download_stats.items() %}
+          <tbody id="pypi_download_table">
+          {% for key, value in pypi_downloads.items() %}
+            <tr>
+              <td>{{ key }}</td>
+              <td>{{ value.napari }}</td>
+              <td>{{ value.npe2 }}</td>
+              <td>{{ value['napari-plugin-manager'] }}</td>
+            </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <h3>Conda download statistics on day {{ today }}</h3>
+      <div class="table-responsive small">
+        <table class="table table-striped table-sm">
+          <thead>
+            <tr>
+              <th scope="col">#</th>
+              <th scope="col">napari</th>
+              <th scope="col">npe2</th>
+              <th scope="col">napari-plugin-manager</th>
+            </tr>
+          </thead>
+          <tbody id="conda_download_table">
+          {% for key, value in conda_downloads.items() %}
             <tr>
               <td>{{ key }}</td>
               <td>{{ value.napari }}</td>
@@ -407,22 +430,31 @@
         </table>
       </div>
 
-      <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-        <h1 class="h2" id="stars">{{ project }} github stars</h1>
-        Number of stars on the {{ project }} repository
-<!--        <div class="btn-toolbar mb-2 mb-md-0">-->
-<!--          <div class="btn-group me-2">-->
-<!--            <button type="button" class="btn btn-sm btn-outline-secondary">Share</button>-->
-<!--            <button type="button" class="btn btn-sm btn-outline-secondary">Export</button>-->
-<!--          </div>-->
-<!--          <button type="button" class="btn btn-sm btn-outline-secondary dropdown-toggle d-flex align-items-center gap-1">-->
-<!--            <svg class="bi"><use xlink:href="#calendar3"/></svg>-->
-<!--            This week-->
-<!--          </button>-->
-<!--        </div>-->
+      <ul class="nav nav-tabs" id="myTab" role="tablist">
+         <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="stars-tab" data-bs-toggle="tab" data-bs-target="#stars" type="button" role="tab" aria-controls="stars" aria-selected="true">GitHub Stars</button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="downloads-tab" data-bs-toggle="tab" data-bs-target="#downloads_plot" type="button" role="tab" aria-controls="downloads_plot" aria-selected="false">Downloads</button>
+        </li>
+      </ul>
+      <div class="tab-content" id="myTabContent">
+        <div class="tab-pane fade show active" id="stars" role="tabpanel" aria-labelledby="stars-tab">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2" id="stars">{{ project }} github stars</h1>
+            Number of stars on the {{ project }} repository
+          </div>
+          <canvas class="my-4 w-100" id="starsChart" width="900" height="380"></canvas>
+        </div>
+        <div class="tab-pane fade" id="downloads_plot" role="tabpanel" aria-labelledby="downloads-tab">
+          <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+            <h1 class="h2" id="stars">{{ project }} download per day</h1>
+          </div>
+          <canvas class="my-4 w-100" id="downloadChart" width="900" height="380"></canvas>
+        </div>
       </div>
 
-      <canvas class="my-4 w-100" id="myChart" width="900" height="380"></canvas>
+
 
       <h2 id="statistics">Basic GitHub statistics on day {{ today }}</h2>
       <div class="table-responsive small">
@@ -434,6 +466,9 @@
             </tr>
           </thead>
           <tbody>
+            <tr>
+              <td>Stars</td>
+              <td>{{ stats.stars }}</td>
             <tr>
               <td>Active contributors</td>
               <td>{{ stats.active_contributors }}</td>
@@ -473,9 +508,50 @@
               <td>Bug fixed since {{ base_day }}</td>
               <td>{{ stats.labels.bugfix }}</td>
             </tr>
+            <tr>
+                <td>Issues closed since {{ base_day }}</td>
+                <td>{{ stats.closed_issues }}</td>
+            </tr>
+            <tr>
+                <td>Issues opened since {{ base_day }}</td>
+                <td>{{ stats.opened_issues }}</td>
+            </tr>
           </tbody>
         </table>
       </div>
+      <h2>Plugin statistics</h2>
+        <div class="table-responsive small">
+            <table class="table table-striped table-sm">
+            <thead>
+            <tr>
+              <th scope="col">Name</th>
+              <th scope="col">Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Plugin count</td>
+              <td>{{ plugins.count }}</td>
+            </tr>
+            <tr>
+                <td>Total number of downloads of plugins from pypi</td>
+                <td>{{ plugins.all_plugin_downloads_from_pypi }}</td>
+            </tr>
+            <tr>
+                <td>Total number of downloads of plugins from conda</td>
+                <td>{{ plugins.all_plugin_downloads_from_conda }}</td>
+            </tr>
+            <tr>
+                <td>Number of actively used plugins (above 1500 downloads in last month)</td>
+                <td>{{ plugins.active }}</td>
+            </tr>
+            <tr>
+                <td>Number of actively developed plugins (release since {{ base_day }})</td>
+                <td>{{ plugins.under_active_development }}</td>
+            </tr>
+            </tbody>
+            </table>
+        </div>
       <h2>forum.image.sc engagement</h2>
       There are {{ topics_count }} topics on forum.image.sc with napari tag.
       Total number of engagement user is {{ users_count }}.
@@ -485,7 +561,6 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.3.2/dist/chart.umd.js" integrity="sha384-eI7PSr3L1XLISH8JdDII5YN/njoSsxfbrkCTnJrzXt+ENP5MOVBxD+l6sEG4zoLp" crossorigin="anonymous"></script><script src="dashboard.js"></script>
-    <script src="download_stats.js"></script>
 
   </body>
 </html>
