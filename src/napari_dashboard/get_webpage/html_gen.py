@@ -201,7 +201,6 @@ def generate_webpage(
         "Last week": {},
         "Last month": {},
         "Total": {},
-        "PePy": {},
     }
     conda_download_info = {"Total": {}, "Last version": {}}
     pepy_download = {}
