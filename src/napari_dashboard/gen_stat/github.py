@@ -1,13 +1,16 @@
 import datetime
+import itertools
 from collections.abc import Sequence
 
 from sqlalchemy import func, null
 from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.github import (
+    ArtifactDownloads,
     Issues,
     Labels,
     PullRequests,
+    Release,
     Repository,
     Stars,
 )
@@ -177,6 +180,7 @@ def generate_pr_stats(
         .filter(
             PullRequests.repository == repo_model.id,
             PullRequests.merge_time.is_(null()),
+            PullRequests.close_time.is_(null()),
         )
         .count()
     )
@@ -198,15 +202,137 @@ def generate_pr_stats(
         )
         .count()
     )
+    pr_closed_without_merge = (
+        session.query(PullRequests)
+        .filter(
+            PullRequests.repository == repo_model.id,
+            PullRequests.close_time.is_not(null()),
+            PullRequests.merge_time.is_(null()),
+        )
+        .count()
+    )
     return {
         "total_pull_requests": total_pull_requests,
         "merged_pull_requests": merged_pull_requests,
         "open_pull_requests": open_pull_requests,
         "new_merged_pull_requests": new_merged_pull_requests,
         "new_open_pull_requests": new_opened_pull_requests,
+        "pr_closed_without_merge": pr_closed_without_merge,
         "average_pull_requests_per_day": round(
             new_opened_pull_requests / days, 2
         ),
+    }
+
+
+def bundle_downloads_count(user: str, repo: str, session: Session):
+    repo_model = get_repo_model(user, repo, session)
+    return dict(
+        session.query(
+            ArtifactDownloads.platform,
+            func.sum(ArtifactDownloads.download_count),
+        )
+        .join(Release, Release.id == ArtifactDownloads.release)
+        .filter(Release.repository == repo_model.id)
+        .group_by(ArtifactDownloads.platform)
+        .all()
+    )
+
+
+def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
+    repo_model = get_repo_model(user, repo, session)
+    initial_date = min(
+        session.query(Issues.open_time).order_by(Issues.open_time).first()[0],
+        session.query(PullRequests.open_time)
+        .order_by(PullRequests.open_time)
+        .first()[0],
+    ).date()
+    # generate date array since initial_date
+    days_array = [
+        initial_date + datetime.timedelta(days=i)
+        for i in range(
+            (datetime.datetime.now().date() - initial_date).days + 1
+        )
+    ]
+    index_dict = {day: i for i, day in enumerate(days_array)}
+    issues_open = [0] * len(days_array)
+    issues_closed = [0] * len(days_array)
+    pr_open = [0] * len(days_array)
+    pr_closed = [0] * len(days_array)
+    pr_merged = [0] * len(days_array)
+    for issue in (
+        session.query(Issues).filter(Issues.repository == repo_model.id).all()
+    ):
+        issues_open[index_dict[issue.open_time.date()]] += 1
+        if issue.close_time is not None:
+            issues_closed[index_dict[issue.close_time.date()]] += 1
+
+    for pull_request in (
+        session.query(PullRequests)
+        .filter(PullRequests.repository == repo_model.id)
+        .all()
+    ):
+        pr_open[index_dict[pull_request.open_time.date()]] += 1
+        if pull_request.close_time is not None:
+            pr_closed[index_dict[pull_request.close_time.date()]] += 1
+        if pull_request.merge_time is not None:
+            pr_merged[index_dict[pull_request.merge_time.date()]] += 1
+
+    weeks = days_array[::7]
+    issues_open_weekly = [
+        sum(
+            issues_open[j * 7 + i]
+            for i in range(7)
+            if j * 7 + i < len(issues_open)
+        )
+        for j in range(len(weeks))
+    ]
+    issues_closed_weekly = [
+        sum(
+            issues_closed[j * 7 + i]
+            for i in range(7)
+            if j * 7 + i < len(issues_closed)
+        )
+        for j in range(len(weeks))
+    ]
+    pr_open_weekly = [
+        sum(pr_open[j * 7 + i] for i in range(7) if j * 7 + i < len(pr_open))
+        for j in range(len(weeks))
+    ]
+    pr_closed_weekly = [
+        sum(
+            pr_closed[j * 7 + i]
+            for i in range(7)
+            if j * 7 + i < len(pr_closed)
+        )
+        for j in range(len(weeks))
+    ]
+    pr_merged_weekly = [
+        sum(
+            pr_merged[j * 7 + i]
+            for i in range(7)
+            if j * 7 + i < len(pr_merged)
+        )
+        for j in range(len(weeks))
+    ]
+
+    return {
+        "days": [x.strftime("%Y-%m-%d") for x in days_array],
+        "issues_open": issues_open,
+        "issues_open_cumulative": list(itertools.accumulate(issues_open)),
+        "issues_closed": issues_closed,
+        "issues_closed_cumulative": list(itertools.accumulate(issues_closed)),
+        "pr_open": pr_open,
+        "pr_open_cumulative": list(itertools.accumulate(pr_open)),
+        "pr_closed": pr_closed,
+        "pr_closed_cumulative": list(itertools.accumulate(pr_closed)),
+        "pr_merged": pr_merged,
+        "pr_merged_cumulative": list(itertools.accumulate(pr_merged)),
+        "weeks": [x.strftime("%Y-%m-%d") for x in weeks],
+        "issues_open_weekly": issues_open_weekly,
+        "issues_closed_weekly": issues_closed_weekly,
+        "pr_open_weekly": pr_open_weekly,
+        "pr_closed_weekly": pr_closed_weekly,
+        "pr_merged_weekly": pr_merged_weekly,
     }
 
 
@@ -231,5 +357,9 @@ def generate_basic_stats(
         ),
         "opened_issues": count_recent_opened_issues(
             user, repo, session, since
+        ),
+        "bundle_download": bundle_downloads_count(user, repo, session),
+        "pr_issue_time_stats": generate_pr_and_issue_time_stats(
+            user, repo, session
         ),
     }

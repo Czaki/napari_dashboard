@@ -95,8 +95,9 @@ class PullRequests(Base):
         Integer, ForeignKey("github_repositories.id")
     )
     pull_request: Mapped[int] = Column(Integer)
-    merge_time: Mapped[DateTime] = Column(DateTime)
     open_time: Mapped[DateTime] = Column(DateTime)
+    close_time: Mapped[DateTime] = Column(DateTime)
+    merge_time: Mapped[DateTime] = Column(DateTime)
     title: Mapped[str] = Column(String)
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
@@ -123,3 +124,29 @@ class Issues(Base):
     labels: Mapped[list["Labels"]] = relationship(
         secondary=issues_to_labels_table, back_populates="issues"
     )
+
+
+class Release(Base):
+    __tablename__ = "github_releases"
+    __table_args__ = (UniqueConstraint("repository", "release_tag"),)
+
+    id: Mapped[int] = Column(
+        Integer, primary_key=True, autoincrement=True, nullable=False
+    )
+    repository: Mapped[int] = Column(
+        Integer, ForeignKey("github_repositories.id")
+    )
+    release_tag: Mapped[str] = Column(String)
+
+
+class ArtifactDownloads(Base):
+    __tablename__ = "github_artifact_downloads"
+    __table_args__ = (UniqueConstraint("release", "artifact_name"),)
+
+    id: Mapped[int] = Column(
+        Integer, primary_key=True, autoincrement=True, nullable=False
+    )
+    release: Mapped[int] = Column(Integer, ForeignKey("github_releases.id"))
+    download_count: Mapped[int] = Column(Integer)
+    artifact_name: Mapped[str] = Column(String)
+    platform: Mapped[str] = Column(String)

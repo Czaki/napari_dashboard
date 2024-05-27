@@ -3,14 +3,17 @@ import os
 import sys
 
 from github import Auth, Github, Repository as GHRepository
+from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from napari_dashboard.db_schema.github import (
+    ArtifactDownloads,
     GithubUser,
     Issues,
     Labels,
     PullRequests,
+    Release,
     Repository,
     Stars,
 )
@@ -176,9 +179,6 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
 
     pr_iter = gh_repo.get_pulls(state="all")
     for pr in tqdm(pr_iter, total=pr_iter.totalCount):
-        if pr.closed_at is not None and pr.merged_at is None:
-            # skip rejected pull requests
-            continue
         ensure_user(pr.user.login, session)
         # check if pull request is already saved and check if there is a need to update
         # merge status and labels
@@ -192,9 +192,10 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             .all()
         )
         if len(pr_li) > 0:
-            if pr_li[0].merge_time is not None:
+            if pr_li[0].close_time is not None:
                 continue
             pr_li[0].merge_time = pr.merged_at
+            pr_li[0].close_time = pr.closed_at
             pr_li[0].description = pr.body
             pr_li[0].title = pr.title
             pr_li[0].labels = [
@@ -210,6 +211,7 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             PullRequests(
                 user=pr.user.login,
                 merge_time=pr.merged_at,
+                close_time=pr.closed_at,
                 open_time=pr.created_at,
                 repository=repo_model.id,
                 pull_request=pr.number,
@@ -296,3 +298,48 @@ def save_issues(user: str, repo: str, session: Session) -> None:
         .count()
     )
     logging.info("Saved %s issues for %s", count_2 - count, gh_repo.full_name)
+
+
+def update_artifact_download(user: str, repo: str, session: Session):
+    gh_repo, repo_model = get_repo_with_model(user, repo, session)
+
+    releases = gh_repo.get_releases()
+
+    for release in tqdm(releases, total=releases.totalCount):
+        if release.prerelease:
+            continue
+        release_model = get_or_create(
+            session,
+            Release,
+            repository=repo_model.id,
+            release_tag=release.tag_name,
+        )
+        for asset in release.get_assets():
+            try:
+                artifact = (
+                    session.query(ArtifactDownloads)
+                    .filter(
+                        ArtifactDownloads.release == release_model.id,
+                        ArtifactDownloads.artifact_name == asset.name,
+                    )
+                    .one()
+                )
+                artifact.download_count = asset.download_count
+            except NoResultFound:
+                if asset.name.endswith(".sh"):
+                    platform = "Linux"
+                elif asset.name.endswith(".exe"):
+                    platform = "Windows"
+                elif asset.name.endswith(".pkg"):
+                    platform = "macOS"
+                else:
+                    continue
+                session.add(
+                    ArtifactDownloads(
+                        release=release_model.id,
+                        artifact_name=asset.name,
+                        download_count=asset.download_count,
+                        platform=platform,
+                    )
+                )
+    session.commit()

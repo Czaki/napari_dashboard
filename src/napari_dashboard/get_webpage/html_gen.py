@@ -9,8 +9,9 @@ import requests
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
+from tqdm import tqdm
 
-from napari_dashboard.db_update.github import get_repo, setup_cache
+from napari_dashboard.db_update.github import setup_cache
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
@@ -27,9 +28,10 @@ LABELS = [
 ]
 
 
-def get_topics_count():
+def get_topics_count(since: datetime.date):
     index = 1
     count = 0
+    active_count = 0
     user_set = set()
     while True:
         topics = requests.get(
@@ -42,10 +44,22 @@ def get_topics_count():
             break
 
         count += len(topics["topic_list"]["topics"])
+        for topic in topics["topic_list"]["topics"]:
+            if (
+                datetime.datetime.fromisoformat(
+                    topic["last_posted_at"]
+                ).replace(tzinfo=None)
+                >= since
+            ):
+                active_count += 1
         for user in topics["users"]:
             user_set.add(user["username"])
         index += 1
-    return count, len(user_set)
+    return {
+        "topics_count": count,
+        "users_count": len(user_set),
+        "active_topics_count": active_count,
+    }
 
 
 def get_conda_downloads(name):
@@ -63,28 +77,11 @@ def get_plugin_count():
     return len(requests.get("https://api.napari.org/api/plugins").json())
 
 
-def get_bundle_app_download():
-    download_count = {"Windows": 0, "Linux": 0, "macOS": 0}
-    repo = get_repo("napari", "napari")
-
-    for release in repo.get_releases():
-        if release.prerelease:
-            continue
-        for asset in release.get_assets():
-            if asset.name.endswith(".sh"):
-                download_count["Linux"] += asset.download_count
-            if asset.name.endswith(".exe"):
-                download_count["Windows"] += asset.download_count
-            if asset.name.endswith(".pkg"):
-                download_count["macOS"] += asset.download_count
-    return download_count
-
-
 def get_plugin_downloads():
     plugins = requests.get("https://api.napari.org/api/plugins").json()
     conda_translation = requests.get("https://api.napari.org/api/conda").json()
     res_dict = {}
-    for plugin in plugins:
+    for plugin in tqdm(plugins):
         with contextlib.suppress(KeyError):
             res_dict[plugin] = get_package_downloads(plugin, conda_translation)
     return res_dict
@@ -189,7 +186,7 @@ def generate_webpage(
     target_path.mkdir(parents=True, exist_ok=True)
     print(f"db path {db_path.absolute()}, sqlite://{db_path.absolute()}")
     engine = create_engine(f"sqlite:///{db_path.absolute()}")
-    setup_cache()
+    setup_cache(timeout=60 * 60 * 4)
 
     with Session(engine) as session:
         stats = generate_basic_stats("napari", "napari", session, date, LABELS)
@@ -205,6 +202,7 @@ def generate_webpage(
     conda_download_info = {"Total": {}, "Last version": {}}
     pepy_download = {}
 
+    print("Fetch download data")
     for package in ("napari", "npe2", "napari-plugin-manager"):
         pypi_stats = json.loads(pypistats.recent(package, format="json"))
         pypi_download_info["Last day"][package] = pypi_stats["data"][
@@ -229,8 +227,10 @@ def generate_webpage(
         conda_download_info["Total"][package] = total_downloads
         conda_download_info["Last version"][package] = last_version
 
-    topics_count, users_count = get_topics_count()
+    print("fetching forum data")
+    forums_stats = get_topics_count(date)
 
+    print("fetching plugin data")
     plugin_download = get_plugin_downloads()
     active_plugin_stats = active_plugins(plugin_download)
     all_plugin_downloads_from_pypi = sum(
@@ -264,9 +264,7 @@ def generate_webpage(
         "today": datetime.datetime.now().strftime("%Y-%m-%d"),
         "base_day": date.strftime("%Y-%m-%d"),
         "pypi_downloads": pypi_download_info,
-        "bundle_download": get_bundle_app_download(),
-        "topics_count": topics_count,
-        "users_count": users_count,
+        "forum": forums_stats,
         "conda_downloads": conda_download_info,
         "plugins": {
             "count": get_plugin_count(),
@@ -276,6 +274,7 @@ def generate_webpage(
             "under_active_development": len(under_active_development),
         },
     }
+    print("generating webpage")
 
     # Create an environment
     env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
