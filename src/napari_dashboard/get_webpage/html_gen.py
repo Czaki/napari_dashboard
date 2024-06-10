@@ -15,6 +15,7 @@ from napari_dashboard.db_update.github import setup_cache
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
+    generate_contributors_stats,
 )
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
@@ -65,9 +66,12 @@ def get_topics_count(since: datetime.date):
 def get_conda_downloads(name):
     if name is None:
         return 0, 0
-    conda_info = requests.get(
-        f"https://api.anaconda.org/package/{name}"
-    ).json()
+    conda_info_res = requests.get(f"https://api.anaconda.org/package/{name}")
+    if conda_info_res.status_code != 200:
+        raise ValueError(
+            f"Error fetching conda info for {name} with status {conda_info_res.status_code} and body {conda_info_res.text}"
+        )
+    conda_info = conda_info_res.json()
     total_downloads = sum(file["ndownloads"] for file in conda_info["files"])
     last_version = conda_info["files"][-1]["ndownloads"]
     return total_downloads, last_version
@@ -192,6 +196,11 @@ def generate_webpage(
         stats = generate_basic_stats("napari", "napari", session, date, LABELS)
         stars = calc_stars_per_day_cumulative("napari", "napari", session)
         stats["stars"] = stars[-1]["stars"]
+        stats["contributors"] = generate_contributors_stats(
+            [("napari", "napari"), ("napari", "docs"), ("napari", "npe2")],
+            session,
+            date,
+        )
 
     pypi_download_info = {
         "Last day": {},

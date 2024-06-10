@@ -13,6 +13,19 @@ from sqlalchemy.orm import Mapped, relationship
 
 from napari_dashboard.db_schema.base import Base
 
+pr_to_coauthors_table = Table(
+    "github_pr_to_coauthors_table",
+    Base.metadata,
+    Column(
+        "github_users", ForeignKey("github_users.username"), primary_key=True
+    ),
+    Column(
+        "github_pull_requests",
+        ForeignKey("github_pull_requests.id"),
+        primary_key=True,
+    ),
+)
+
 
 class GithubUser(Base):
     __tablename__ = "github_users"
@@ -20,6 +33,9 @@ class GithubUser(Base):
 
     username: Mapped[str] = Column(String)
     stars: Mapped[list["Stars"]] = relationship(back_populates="gh_user")
+    pull_requests_coauthor: Mapped[list["PullRequests"]] = relationship(
+        secondary=pr_to_coauthors_table, back_populates="coathors"
+    )
 
 
 class Repository(Base):
@@ -102,6 +118,10 @@ class PullRequests(Base):
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
         secondary=pr_to_labels_table, back_populates="pull_requests"
+    )
+    coathors: Mapped[list["GithubUser"]] = relationship(
+        secondary=pr_to_coauthors_table,
+        back_populates="pull_requests_coauthor",
     )
 
 

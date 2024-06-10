@@ -1,12 +1,14 @@
+from __future__ import annotations
+
 import datetime
 import itertools
-from collections.abc import Sequence
+from typing import TYPE_CHECKING, Callable
 
-from sqlalchemy import func, null
-from sqlalchemy.orm import Session
+from sqlalchemy import desc, func, null
 
 from napari_dashboard.db_schema.github import (
     ArtifactDownloads,
+    GithubUser,
     Issues,
     Labels,
     PullRequests,
@@ -14,6 +16,41 @@ from napari_dashboard.db_schema.github import (
     Repository,
     Stars,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from sqlalchemy.orm import Session
+
+BOT_SET = {
+    "dependabot[bot]",
+    "pre-commit-ci[bot]",
+    "napari-bot",
+    "github-actions[bot]",
+}
+
+CORE_DEVS = {
+    "andy-sweet",
+    "DragaDoncila",
+    "GenevieveBuckley",
+    "Czaki",
+    "jni",
+    "kevinyamauchi",
+    "kne42",
+    "kephale",
+    "brisvag",
+    "melissawm",
+    "melonora",
+    "psobolewskiPhD",
+    "AhmetCanSolak",
+    "alisterburt",
+    "justinelarsen",
+    "royerloic",
+    "sofroniewn",
+    "shanaxel42",
+    "tlambert03",
+    "potating-potato",
+}
 
 
 def get_repo_model(user: str, repo: str, session: Session) -> Repository:
@@ -62,19 +99,58 @@ def calc_stars_per_day_cumulative(
     return res
 
 
-def get_contributors(
-    user: str, repo: str, session: Session
+def get_pull_request_creators(
+    user: str,
+    repo: str,
+    session: Session,
+    since: datetime.datetime | None = None,
 ) -> list[tuple[str, int]]:
     # get all contributors with number of pull requests
     repo_model = get_repo_model(user, repo, session)
+    basic_querry = session.query(
+        PullRequests.user, func.count(PullRequests.pull_request).label("count")
+    ).filter(PullRequests.repository == repo_model.id)
+
+    if since is not None:
+        basic_querry = basic_querry.filter(PullRequests.open_time > since)
+
     return [
         (x[0], x[1])
-        for x in session.query(
-            PullRequests.user, func.count(PullRequests.pull_request)
-        )
-        .filter(PullRequests.repository == repo_model.id)
-        .group_by(PullRequests.user)
+        for x in basic_querry.group_by(PullRequests.user)
+        .order_by(desc("count"))
         .all()
+        if x[0] not in BOT_SET
+    ]
+
+
+def get_pull_request_coauthors(
+    user: str,
+    repo: str,
+    session: Session,
+    since: datetime.datetime | None = None,
+) -> list[tuple[str, int]]:
+    # get all contributors with number of pull requests based on
+    # PullRequests.coauthors
+    repo_model = get_repo_model(user, repo, session)
+
+    basic_query = (
+        session.query(
+            GithubUser.username,
+            func.count(PullRequests.pull_request).label("count"),
+        )
+        .join(PullRequests, GithubUser.pull_requests_coauthor)
+        .filter(PullRequests.repository == repo_model.id)
+    )
+
+    if since is not None:
+        basic_query = basic_query.filter(PullRequests.open_time > since)
+
+    return [
+        (x[0], x[1])
+        for x in basic_query.group_by(GithubUser.username)
+        .order_by(desc("count"))
+        .all()
+        if x[0] not in BOT_SET
     ]
 
 
@@ -83,6 +159,7 @@ def get_recent_contributors(
 ) -> list[str]:
     # get all contributors with number of pull requests
     repo_model = get_repo_model(user, repo, session)
+
     return [
         x[0]
         for x in session.query(PullRequests.user)
@@ -92,7 +169,7 @@ def get_recent_contributors(
         )
         .group_by(PullRequests.user)
         .all()
-        if x[0] not in {"dependabot[bot]", "pre-commit-ci[bot]", "napari-bot"}
+        if x[0] not in BOT_SET
     ]
 
 
@@ -236,6 +313,61 @@ def bundle_downloads_count(user: str, repo: str, session: Session):
         .group_by(ArtifactDownloads.platform)
         .all()
     )
+
+
+def _generate_contributors_stats(
+    repo_li: list[tuple[str, str]],
+    session: Session,
+    since: datetime.datetime | None,
+    fun: Callable[
+        [str, str, Session, datetime.datetime | None], list[tuple[str, int]]
+    ],
+) -> dict[str, object]:
+    per_repo_stats = {
+        f"{user}/{repo}": dict(fun(user, repo, session, since))
+        for user, repo in repo_li
+    }
+    all_persons = set()
+    for persons in per_repo_stats.values():
+        all_persons.update(persons.keys())
+    res = {}
+    for person in all_persons:
+        res[person] = {}
+        total = 0
+        for repo, stats in per_repo_stats.items():
+            res[person][repo] = stats.get(person, 0)
+            total += res[person][repo]
+        res[person]["total"] = total
+    return sorted(res.items(), key=lambda x: x[1]["total"], reverse=True)
+
+
+def generate_contributors_stats(
+    repo_li: list[tuple[str, str]], session: Session, since: datetime.datetime
+) -> dict[str, object]:
+    pr_creators = _generate_contributors_stats(
+        repo_li, session, None, get_pull_request_creators
+    )
+    pr_coauthors = _generate_contributors_stats(
+        repo_li, session, None, get_pull_request_coauthors
+    )
+    pr_creators_since = _generate_contributors_stats(
+        repo_li, session, since, get_pull_request_creators
+    )
+    pr_coauthors_since = _generate_contributors_stats(
+        repo_li, session, since, get_pull_request_coauthors
+    )
+    return {
+        "pr_creators": pr_creators[:10],
+        "pr_coauthors": pr_coauthors[:10],
+        "pr_creators_since": pr_creators_since[:10],
+        "pr_coauthors_since": pr_coauthors_since[:10],
+        "pr_creators_non_core": [
+            x for x in pr_creators if x[0] not in CORE_DEVS
+        ][:10],
+        "pr_creators_non_core_since": [
+            x for x in pr_creators_since if x[0] not in CORE_DEVS
+        ][:10],
+    }
 
 
 def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):

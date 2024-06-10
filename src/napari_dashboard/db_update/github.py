@@ -2,7 +2,12 @@ import logging
 import os
 import sys
 
-from github import Auth, Github, Repository as GHRepository
+from github import (
+    Auth,
+    Github,
+    PullRequest as GHPullRequest,
+    Repository as GHRepository,
+)
 from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from tqdm import tqdm
@@ -116,6 +121,14 @@ def save_stars(user: str, repo: str, session: Session) -> None:
             gh_repo.full_name,
         )
         return
+    if count > gh_repo.stargazers_count:
+        session.query(Stars).filter(Stars.repository == repo_model.id).delete()
+        session.commit()
+        logging.info(
+            "Reset starts because have more saved stars %s than exists %s",
+            count,
+            gh_repo.stargazers_count,
+        )
 
     stargazers = gh_repo.get_stargazers_with_dates()
 
@@ -155,6 +168,24 @@ def ensure_user(user: str, session: Session) -> None:
     ):
         session.add(GithubUser(username=user))
         session.commit()
+
+
+def get_pull_request_coauthors(pr: GHPullRequest, session: Session):
+    coauthors = set()
+    for commit in pr.get_commits():
+        if commit.author is not None:
+            coauthors.add(commit.author.login)
+        else:
+            coauthors.add(pr.user.login)
+    try:
+        coauthors.remove(pr.user.login)
+    except KeyError:
+        if not pr.title.startswith("test: [Automatic]"):
+            logging.exception("PR %s author not in coauthors", pr)
+    return [
+        get_or_create(session, GithubUser, username=coauthor)
+        for coauthor in coauthors
+    ]
 
 
 def save_pull_requests(user: str, repo: str, session: Session) -> None:
@@ -202,6 +233,7 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
                 get_or_create(session, Labels, label=label.name)
                 for label in pr.get_labels()
             ]
+            pr_li[0].coathors = get_pull_request_coauthors(pr, session)
             continue
         labels = [
             get_or_create(session, Labels, label=label.name)
@@ -218,6 +250,7 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
                 labels=labels,
                 title=pr.title,
                 description=pr.body,
+                coathors=get_pull_request_coauthors(pr, session),
             )
         )
     session.commit()
