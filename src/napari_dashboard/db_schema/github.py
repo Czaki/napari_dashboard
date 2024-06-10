@@ -13,8 +13,29 @@ from sqlalchemy.orm import Mapped, relationship
 
 from napari_dashboard.db_schema.base import Base
 
+BOT_SET = {
+    "dependabot[bot]",
+    "pre-commit-ci[bot]",
+    "napari-bot",
+    "github-actions[bot]",
+}
+
+
 pr_to_coauthors_table = Table(
     "github_pr_to_coauthors_table",
+    Base.metadata,
+    Column(
+        "github_users", ForeignKey("github_users.username"), primary_key=True
+    ),
+    Column(
+        "github_pull_requests",
+        ForeignKey("github_pull_requests.id"),
+        primary_key=True,
+    ),
+)
+
+pr_to_reviewers_table = Table(
+    "github_pr_to_reviewers_table",
     Base.metadata,
     Column(
         "github_users", ForeignKey("github_users.username"), primary_key=True
@@ -34,7 +55,10 @@ class GithubUser(Base):
     username: Mapped[str] = Column(String)
     stars: Mapped[list["Stars"]] = relationship(back_populates="gh_user")
     pull_requests_coauthor: Mapped[list["PullRequests"]] = relationship(
-        secondary=pr_to_coauthors_table, back_populates="coathors"
+        secondary=pr_to_coauthors_table, back_populates="coauthors"
+    )
+    pull_requests_reviewer: Mapped[list["PullRequests"]] = relationship(
+        secondary=pr_to_reviewers_table, back_populates="reviewers"
     )
 
 
@@ -119,9 +143,13 @@ class PullRequests(Base):
     labels: Mapped[list["Labels"]] = relationship(
         secondary=pr_to_labels_table, back_populates="pull_requests"
     )
-    coathors: Mapped[list["GithubUser"]] = relationship(
+    coauthors: Mapped[list["GithubUser"]] = relationship(
         secondary=pr_to_coauthors_table,
         back_populates="pull_requests_coauthor",
+    )
+    reviewers: Mapped[list["GithubUser"]] = relationship(
+        secondary=pr_to_reviewers_table,
+        back_populates="pull_requests_reviewer",
     )
 
 

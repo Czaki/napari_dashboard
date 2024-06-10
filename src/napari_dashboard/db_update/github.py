@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from napari_dashboard.db_schema.github import (
+    BOT_SET,
     ArtifactDownloads,
     GithubUser,
     Issues,
@@ -25,6 +26,7 @@ from napari_dashboard.db_schema.github import (
 from napari_dashboard.gen_stat.github import get_repo_model
 
 GH_TOKEN_ = os.environ.get("GH_TOKEN_")
+
 
 _G = None
 
@@ -156,9 +158,7 @@ def save_stars(user: str, repo: str, session: Session) -> None:
     count_2 = (
         session.query(Stars).filter(Stars.repository == repo_model.id).count()
     )
-    logging.info(
-        "Saved %s stars for %s", count_2 - count, gh_repo.stargazers_count
-    )
+    logging.info("Saved %s stars for %s", count_2 - count, repo_model)
 
 
 def ensure_user(user: str, session: Session) -> None:
@@ -180,12 +180,44 @@ def get_pull_request_coauthors(pr: GHPullRequest, session: Session):
     try:
         coauthors.remove(pr.user.login)
     except KeyError:
-        if not pr.title.startswith("test: [Automatic]"):
+        if (
+            not pr.title.startswith("test: [Automatic]")
+            and pr.user.login not in BOT_SET
+        ):
             logging.exception("PR %s author not in coauthors", pr)
     return [
         get_or_create(session, GithubUser, username=coauthor)
         for coauthor in coauthors
     ]
+
+
+def get_pull_request_reviewers(pr: GHPullRequest, session: Session):
+    reviewers = set()
+    for review in pr.get_reviews():
+        if review.user is not None:
+            reviewers.add(review.user.login)
+    if pr.user.login in reviewers:
+        reviewers.remove(pr.user.login)
+
+    return [
+        get_or_create(session, GithubUser, username=reviewer)
+        for reviewer in reviewers
+    ]
+
+
+def _get_pr_attributes(pr: GHPullRequest, session: Session):
+    return {
+        "merge_time": pr.merged_at,
+        "close_time": pr.closed_at,
+        "title": pr.title,
+        "description": pr.body,
+        "labels": [
+            get_or_create(session, Labels, label=label.name)
+            for label in pr.get_labels()
+        ],
+        "coauthors": get_pull_request_coauthors(pr, session),
+        "reviewers": get_pull_request_reviewers(pr, session),
+    }
 
 
 def save_pull_requests(user: str, repo: str, session: Session) -> None:
@@ -225,32 +257,17 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         if len(pr_li) > 0:
             if pr_li[0].close_time is not None:
                 continue
-            pr_li[0].merge_time = pr.merged_at
-            pr_li[0].close_time = pr.closed_at
-            pr_li[0].description = pr.body
-            pr_li[0].title = pr.title
-            pr_li[0].labels = [
-                get_or_create(session, Labels, label=label.name)
-                for label in pr.get_labels()
-            ]
-            pr_li[0].coathors = get_pull_request_coauthors(pr, session)
+
+            for key, value in _get_pr_attributes(pr, session).items():
+                setattr(pr_li[0], key, value)
             continue
-        labels = [
-            get_or_create(session, Labels, label=label.name)
-            for label in pr.get_labels()
-        ]
         session.add(
             PullRequests(
                 user=pr.user.login,
-                merge_time=pr.merged_at,
-                close_time=pr.closed_at,
-                open_time=pr.created_at,
                 repository=repo_model.id,
+                open_time=pr.created_at,
                 pull_request=pr.number,
-                labels=labels,
-                title=pr.title,
-                description=pr.body,
-                coathors=get_pull_request_coauthors(pr, session),
+                **_get_pr_attributes(pr, session),
             )
         )
     session.commit()

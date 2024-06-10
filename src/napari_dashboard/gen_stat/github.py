@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Callable
 from sqlalchemy import desc, func, null
 
 from napari_dashboard.db_schema.github import (
+    BOT_SET,
     ArtifactDownloads,
     GithubUser,
     Issues,
@@ -22,12 +23,6 @@ if TYPE_CHECKING:
 
     from sqlalchemy.orm import Session
 
-BOT_SET = {
-    "dependabot[bot]",
-    "pre-commit-ci[bot]",
-    "napari-bot",
-    "github-actions[bot]",
-}
 
 CORE_DEVS = {
     "andy-sweet",
@@ -117,6 +112,37 @@ def get_pull_request_creators(
     return [
         (x[0], x[1])
         for x in basic_querry.group_by(PullRequests.user)
+        .order_by(desc("count"))
+        .all()
+        if x[0] not in BOT_SET
+    ]
+
+
+def get_pull_request_reviewers(
+    user: str,
+    repo: str,
+    session: Session,
+    since: datetime.datetime | None = None,
+) -> list[tuple[str, int]]:
+    # get all contributors with number of pull requests based on
+    # PullRequests.coauthors
+    repo_model = get_repo_model(user, repo, session)
+
+    basic_query = (
+        session.query(
+            GithubUser.username,
+            func.count(PullRequests.pull_request).label("count"),
+        )
+        .join(PullRequests, GithubUser.pull_requests_reviewer)
+        .filter(PullRequests.repository == repo_model.id)
+    )
+
+    if since is not None:
+        basic_query = basic_query.filter(PullRequests.open_time > since)
+
+    return [
+        (x[0], x[1])
+        for x in basic_query.group_by(GithubUser.username)
         .order_by(desc("count"))
         .all()
         if x[0] not in BOT_SET
@@ -356,6 +382,12 @@ def generate_contributors_stats(
     pr_coauthors_since = _generate_contributors_stats(
         repo_li, session, since, get_pull_request_coauthors
     )
+    pr_reviewers = _generate_contributors_stats(
+        repo_li, session, None, get_pull_request_reviewers
+    )
+    pr_reviewers_since = _generate_contributors_stats(
+        repo_li, session, since, get_pull_request_reviewers
+    )
     return {
         "pr_creators": pr_creators[:10],
         "pr_coauthors": pr_coauthors[:10],
@@ -367,6 +399,8 @@ def generate_contributors_stats(
         "pr_creators_non_core_since": [
             x for x in pr_creators_since if x[0] not in CORE_DEVS
         ][:10],
+        "pr_reviewers": pr_reviewers[:10],
+        "pr_reviewers_since": pr_reviewers_since[:10],
     }
 
 
