@@ -733,6 +733,8 @@
                     </tbody>
                 </table>
             </div>
+            <p><small>Plugins with more than 1500 downloads in last month are considered as actively used plugins.</small></p>
+            <p><small>Plugins {% for name in plugins.skip %} <code>{{ name }}</code>{% if not loop.last %},{% endif %} {% endfor %} were exclude from this analysis.</small></p>
         </main>
     </div>
 </div>

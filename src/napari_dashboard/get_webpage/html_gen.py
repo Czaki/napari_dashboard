@@ -81,11 +81,15 @@ def get_plugin_count():
     return len(requests.get("https://api.napari.org/api/plugins").json())
 
 
-def get_plugin_downloads():
+def get_plugin_downloads(skip=None):
+    if skip is None:
+        skip = set()
     plugins = requests.get("https://api.napari.org/api/plugins").json()
     conda_translation = requests.get("https://api.napari.org/api/conda").json()
     res_dict = {}
     for plugin in tqdm(plugins):
+        if plugin in skip:
+            continue
         with contextlib.suppress(KeyError):
             res_dict[plugin] = get_package_downloads(plugin, conda_translation)
     return res_dict
@@ -240,8 +244,9 @@ def generate_webpage(
     forums_stats = get_topics_count(date)
 
     print("fetching plugin data")
-    plugin_download = get_plugin_downloads()
-    active_plugin_stats = active_plugins(plugin_download)
+    skip_plugins = {"PartSeg", "skan"}
+    plugin_download = get_plugin_downloads(skip_plugins)
+    active_plugin_stats = active_plugins(plugin_download, last_mont_count=1500)
     all_plugin_downloads_from_pypi = sum(
         v["total_downloads"] for v in plugin_download.values()
     )
@@ -281,6 +286,7 @@ def generate_webpage(
             "all_plugin_downloads_from_conda": all_plugin_downloads_from_conda,
             "active": len(active_plugin_stats),
             "under_active_development": len(under_active_development),
+            "skip": skip_plugins,
         },
     }
     print("generating webpage")
