@@ -18,6 +18,7 @@ from napari_dashboard.gen_stat.github import (
     generate_basic_stats,
     generate_contributors_stats,
 )
+from napari_dashboard.gen_stat.imagesc import get_topics_count
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
 LABELS = [
@@ -28,40 +29,6 @@ LABELS = [
     "enhancement",
     "maintenance",
 ]
-
-
-def get_topics_count(since: datetime.date):
-    index = 1
-    count = 0
-    active_count = 0
-    user_set = set()
-    while True:
-        topics = requests.get(
-            f"https://forum.image.sc/tag/napari/l/latest.json?page={index}",
-            headers={
-                "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:20.0) Gecko/20100101 Firefox/20.0"
-            },
-        ).json()
-        if not topics["topic_list"]["topics"]:
-            break
-
-        count += len(topics["topic_list"]["topics"])
-        for topic in topics["topic_list"]["topics"]:
-            if (
-                datetime.datetime.fromisoformat(
-                    topic["last_posted_at"]
-                ).replace(tzinfo=None)
-                >= since
-            ):
-                active_count += 1
-        for user in topics["users"]:
-            user_set.add(user["username"])
-        index += 1
-    return {
-        "topics_count": count,
-        "users_count": len(user_set),
-        "active_topics_count": active_count,
-    }
 
 
 def get_conda_downloads(name):
@@ -206,6 +173,7 @@ def generate_webpage(
             session,
             date,
         )
+        forums_stats = get_topics_count(date, session)
 
     pypi_download_info = {
         "Last day": {},
@@ -240,9 +208,6 @@ def generate_webpage(
         )
         conda_download_info["Total"][package] = total_downloads
         conda_download_info["Last version"][package] = last_version
-
-    print("fetching forum data")
-    forums_stats = get_topics_count(date)
 
     print("fetching plugin data")
     skip_plugins = {"PartSeg", "skan"}
