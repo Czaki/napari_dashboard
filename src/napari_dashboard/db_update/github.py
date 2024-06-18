@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 
 from github import (
     Auth,
@@ -23,10 +22,11 @@ from napari_dashboard.db_schema.github import (
     Repository,
     Stars,
 )
+from napari_dashboard.db_update.util import get_or_create
 from napari_dashboard.gen_stat.github import get_repo_model
 
 GH_TOKEN_ = os.environ.get("GH_TOKEN_")
-
+logger = logging.getLogger(__name__)
 
 _G = None
 
@@ -59,34 +59,6 @@ def get_repo_with_model(
     return repo_, get_repo_model(user, repo, session)
 
 
-def setup_cache(timeout=3600):
-    """
-    setup cache for speedup execution and reduce number of requests to GitHub API
-    by default cache will expire after 1h (3600s)
-    """
-    try:
-        import requests_cache
-    except ImportError:
-        print("requests_cache not installed", file=sys.stderr)
-        return
-
-    """setup cache for requests"""
-    requests_cache.install_cache(
-        "github_cache", backend="sqlite", expire_after=timeout
-    )
-
-
-def get_or_create(session, model, **kwargs):
-    instance = session.query(model).filter_by(**kwargs).first()
-    if instance:
-        return instance
-
-    instance = model(**kwargs)
-    session.add(instance)
-    session.commit()
-    return instance
-
-
 def stars_per_date(user: str, repo: str):
     repo = get_repo(user, repo)
     date_to_stars = {}
@@ -117,7 +89,7 @@ def save_stars(user: str, repo: str, session: Session) -> None:
         session.query(Stars).filter(Stars.repository == repo_model.id).count()
     )
     if count == gh_repo.stargazers_count:
-        logging.info(
+        logger.info(
             "Already saved %s stars for %s",
             gh_repo.stargazers_count,
             gh_repo.full_name,
@@ -126,7 +98,7 @@ def save_stars(user: str, repo: str, session: Session) -> None:
     if count > gh_repo.stargazers_count:
         session.query(Stars).filter(Stars.repository == repo_model.id).delete()
         session.commit()
-        logging.info(
+        logger.info(
             "Reset starts because have more saved stars %s than exists %s",
             count,
             gh_repo.stargazers_count,
@@ -158,7 +130,12 @@ def save_stars(user: str, repo: str, session: Session) -> None:
     count_2 = (
         session.query(Stars).filter(Stars.repository == repo_model.id).count()
     )
-    logging.info("Saved %s stars for %s", count_2 - count, repo_model)
+    logger.info(
+        "Saved %s stars for %s/%s",
+        count_2 - count,
+        repo_model.user,
+        repo_model.name,
+    )
 
 
 def ensure_user(user: str, session: Session) -> None:
@@ -184,7 +161,7 @@ def get_pull_request_coauthors(pr: GHPullRequest, session: Session):
             not pr.title.startswith("test: [Automatic]")
             and pr.user.login not in BOT_SET
         ):
-            logging.exception("PR %s author not in coauthors", pr)
+            logger.exception("PR %s author not in coauthors", pr)
     return [
         get_or_create(session, GithubUser, username=coauthor)
         for coauthor in coauthors
@@ -277,7 +254,7 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         .count()
     )
 
-    logging.info(
+    logger.info(
         "Saved %s pull requests for %s", count_2 - count, gh_repo.full_name
     )
 
@@ -347,7 +324,7 @@ def save_issues(user: str, repo: str, session: Session) -> None:
         .filter(Issues.repository == repo_model.id)
         .count()
     )
-    logging.info("Saved %s issues for %s", count_2 - count, gh_repo.full_name)
+    logger.info("Saved %s issues for %s", count_2 - count, gh_repo.full_name)
 
 
 def update_artifact_download(user: str, repo: str, session: Session):

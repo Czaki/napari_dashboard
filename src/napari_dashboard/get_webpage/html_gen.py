@@ -11,7 +11,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
-from napari_dashboard.db_update.github import setup_cache
+from napari_dashboard.db_update.util import setup_cache
 from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,

@@ -1,5 +1,6 @@
 import datetime
 import json
+import sys
 
 from sqlalchemy import Row
 
@@ -11,3 +12,31 @@ class JSONEncoder(json.JSONEncoder):
         if isinstance(o, datetime.date):
             return o.isoformat()
         return json.JSONEncoder.default(self, o)
+
+
+def setup_cache(timeout=3600):
+    """
+    setup cache for speedup execution and reduce number of requests to GitHub API
+    by default cache will expire after 1h (3600s)
+    """
+    try:
+        import requests_cache
+    except ImportError:
+        print("requests_cache not installed", file=sys.stderr)
+        return
+
+    """setup cache for requests"""
+    requests_cache.install_cache(
+        "github_cache", backend="sqlite", expire_after=timeout
+    )
+
+
+def get_or_create(session, model, **kwargs):
+    instance = session.query(model).filter_by(**kwargs).first()
+    if instance:
+        return instance
+
+    instance = model(**kwargs)
+    session.add(instance)
+    session.commit()
+    return instance
