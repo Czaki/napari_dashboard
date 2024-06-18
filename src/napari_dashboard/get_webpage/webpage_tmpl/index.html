@@ -739,7 +739,7 @@
                         <td>{{ plugins.all_plugin_downloads_from_conda }}</td>
                     </tr>
                     <tr>
-                        <td>Number of actively used plugins (above 1500 downloads in last month)</td>
+                        <td>Number of plugins above 1500 downloads in last month</td>
                         <td>{{ plugins.active }}</td>
                     </tr>
                     <tr>
@@ -751,6 +751,10 @@
             </div>
             <p><small>Plugins with more than 1500 downloads in last month are considered as actively used plugins.</small></p>
             <p><small>Plugins {% for name in plugins.skip %} <code>{{ name }}</code>{% if not loop.last %},{% endif %} {% endfor %} were exclude from this analysis.</small></p>
+
+            <div>
+                Source data for this statistics is available <a href="/napari_dashboard.xlsx">here</a>
+            </div>
         </main>
     </div>
 </div>

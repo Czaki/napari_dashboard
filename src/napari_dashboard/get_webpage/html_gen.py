@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from napari_dashboard.db_update.github import setup_cache
+from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
@@ -312,6 +313,9 @@ def generate_webpage(
 
     with open(target_path / "color-modes.js", "w") as f:
         f.write(color_mode_template.render(data))
+
+    with Session(engine) as session:
+        generate_excel_file(target_path / "napari_dashboard.xlsx", session)
 
     # Print the rendered HTML
 
