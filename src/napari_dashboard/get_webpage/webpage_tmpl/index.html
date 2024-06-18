@@ -23,6 +23,25 @@
     </table>
 {%- endmacro %}
 
+{% macro tab_header(title, active) -%}
+{% set name = title|lower|replace(' ', '_') %}
+{% set aria_selected = 'false' %}
+
+{% if active == 'active' %}
+    {% set aria_selected = 'true' %}
+{% endif %}
+<li class="nav-item" role="presentation">
+    <button class="nav-link {{ active }}" id="{{ name }}-tab" data-bs-toggle="tab" data-bs-target="#{{ name }}_tab"
+            type="button" role="tab" aria-controls="{{ name }}_tab" aria-selected="{{ aria_selected }}">{{ title }}
+    </button>
+</li>
+{%- endmacro %}
+{% macro tab_content(title, active) -%}
+{% set name = title|lower|replace(' ', '_') %}
+<div class="tab-pane fade {{ active }}" id="{{ name }}_tab" role="tabpanel" aria-labelledby="{{ name }}-tab">
+    {{ caller() }}
+</div>
+{%- endmacro %}
 
 <!doctype html>
 <html lang="en" data-bs-theme="auto">
@@ -505,32 +524,14 @@
             Total number of engagement user is {{ forum.users_count }}.
             There are {{ forum.active_topics_count }} topics active since {{ base_day }}.
 
-            <ul class="nav nav-tabs" id="myTab" role="tablist">
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link active" id="issue_plots-tab" data-bs-toggle="tab"
-                            data-bs-target="#issue_plots" type="button" role="tab" aria-controls="issue_plots"
-                            aria-selected="true">Issue activity
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="pr_plots-tab" data-bs-toggle="tab" data-bs-target="#pr_plots"
-                            type="button" role="tab" aria-controls="pr_plots" aria-selected="true">Pull request activity
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="stars-tab" data-bs-toggle="tab" data-bs-target="#stars_plot"
-                            type="button" role="tab" aria-controls="stars_plot" aria-selected="false">GitHub Stars
-                    </button>
-                </li>
-                <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="downloads-tab" data-bs-toggle="tab" data-bs-target="#downloads_plot"
-                            type="button" role="tab" aria-controls="downloads_plot" aria-selected="false">Downloads
-                    </button>
-                </li>
+            <ul class="nav nav-tabs" id="plot_tab" role="tablist">
+                {{ tab_header("Issue activity", "active") }}
+                {{ tab_header("Pull Request activity") }}
+                {{ tab_header("GitHub Stars") }}
+                {{ tab_header("Downloads") }}
             </ul>
             <div class="tab-content" id="plots">
-                <div class="tab-pane fade show active" id="issue_plots" role="tabpanel"
-                     aria-labelledby="pr_issue_stats-tab">
+                {% call tab_content("Issue activity", "show active") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2" id="issue_plots_h">{{ project }} repository activity</h1>
                         Cumulative activity on napari repository
@@ -541,9 +542,9 @@
 
                     <canvas class="my-4 w-100" id="issue_stats_chart2" width="900" height="380"></canvas>
                     <a id="issue_zoom_reset2" class="chart-action btn btn-secondary">Reset zoom</a>
-                </div>
+                {% endcall %}
 
-                <div class="tab-pane fade show" id="pr_plots" role="tabpanel" aria-labelledby="pr_issue_stats-tab">
+                {% call tab_content("Pull Request activity") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2" id="pr_plots_h">{{ project }} repository activity</h1>
                         Cumulative activity on napari repository
@@ -554,20 +555,20 @@
 
                     <canvas class="my-4 w-100" id="pr_stats_chart2" width="900" height="380"></canvas>
                     <a id="pr_zoom_reset2" class="chart-action btn btn-secondary">Reset zoom</a>
-                </div>
-                <div class="tab-pane fade" id="stars_plot" role="tabpanel" aria-labelledby="stars-tab">
+                {% endcall %}
+                {% call tab_content("GitHub Stars") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2" id="stars">{{ project }} github stars</h1>
                         Number of stars on the {{ project }} repository
                     </div>
                     <canvas class="my-4 w-100" id="starsChart" width="900" height="380"></canvas>
-                </div>
-                <div class="tab-pane fade" id="downloads_plot" role="tabpanel" aria-labelledby="downloads-tab">
+                {% endcall %}
+                {% call tab_content("Downloads") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 class="h2" id="stars">{{ project }} download per day</h1>
+                        <h1 class="h2" id="downloads">{{ project }} download per day</h1>
                     </div>
                     <canvas class="my-4 w-100" id="downloadChart" width="900" height="380"></canvas>
-                </div>
+                {% endcall %}
             </div>
 
 
@@ -642,28 +643,15 @@
             <div>
                 <!-- Nav tabs -->
                 <ul class="nav nav-tabs" id="myTab" role="tablist">
-                    <li class="nav-item">
-                        <a class="nav-link active" id="pr-creators-tab" data-bs-toggle="tab" href="#pr-creators"
-                           role="tab" aria-controls="pr-creators" aria-selected="true">Top PR creators</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="pr-coauthors-tab" data-bs-toggle="tab" href="#pr-coauthors" role="tab"
-                           aria-controls="pr-coauthors" aria-selected="false">Top PR coauthors</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="non-core-devs-tab" data-bs-toggle="tab" href="#non-core-devs" role="tab"
-                           aria-controls="non-core-devs" aria-selected="false">Top non-core devs PR creators</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" id="pr-reviewers-tab" data-bs-toggle="tab" href="#pr-reviewers" role="tab"
-                           aria-controls="pr-reviewers" aria-selected="false">Top PR reviewers</a>
-                    </li>
+                    {{ tab_header("Top PR creators", "active") }}
+                    {{ tab_header("Top PR coauthors") }}
+                    {{ tab_header("Top non-core devs PR creators") }}
+                    {{ tab_header("Top PR reviewers") }}
                 </ul>
 
                 <!-- Tab panes -->
-                <div class="tab-content" id="myTabContent">
-                    <div class="tab-pane fade show active" id="pr-creators" role="tabpanel"
-                         aria-labelledby="pr-creators-tab">
+                <div class="tab-content" id="activity_stars">
+                    {% call tab_content("Top PR creators", "show active") %}
                         <div class="row">
                             <div class="col-md-6">
                                 <h3>All time top PR creators</h3>
@@ -674,8 +662,8 @@
                                 {{ pr_activity(stats.contributors.pr_creators_since, "creator") }}
                             </div>
                         </div>
-                    </div>
-                    <div class="tab-pane fade" id="pr-coauthors" role="tabpanel" aria-labelledby="pr-coauthors-tab">
+                    {% endcall %}
+                    {% call tab_content("Top PR coauthors") %}
                         PR coauthor is a person who do not open the PR but contributed to the PR by code.
                          <div class="row">
                             <div class="col-md-6">
@@ -687,8 +675,8 @@
                                 {{ pr_activity(stats.contributors.pr_coauthors_since, "coauthor") }}
                             </div>
                         </div>
-                    </div>
-                    <div class="tab-pane fade" id="non-core-devs" role="tabpanel" aria-labelledby="non-core-devs-tab">
+                    {% endcall %}
+                    {% call tab_content("Top non-core devs PR creators") %}
                         <div class="row">
                             <div class="col-md-6">
                                 <h3>All time top non core devs PR creators</h3>
@@ -699,8 +687,8 @@
                                 {{ pr_activity(stats.contributors.pr_creators_non_core_since, "creator") }}
                             </div>
                         </div>
-                    </div>
-                    <div class="tab-pane fade" id="pr-reviewers" role="tabpanel" aria-labelledby="pr-reviewers-tab">
+                    {% endcall %}
+                    {% call tab_content("Top PR reviewers") %}
                         <div class="row">
                             <div class="col-md-6">
                                 <h3>All time top PR reviewers</h3>
@@ -711,7 +699,7 @@
                                 {{ pr_activity(stats.contributors.pr_reviewers_since, "reviewer") }}
                             </div>
                         </div>
-                    </div>
+                    {% endcall %}
                 </div>
             </div>
 
