@@ -6,6 +6,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.base import Base
+from napari_dashboard.db_update.conda import save_conda_download_information
 from napari_dashboard.db_update.github import (
     save_issues,
     save_pull_requests,
@@ -46,6 +47,7 @@ def main():
     with Session(engine) as session:
         update_github(session)
         save_forum_info(session)
+        save_conda_download_information(session)
 
 
 if __name__ == "__main__":
