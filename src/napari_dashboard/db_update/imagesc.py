@@ -13,7 +13,7 @@ def save_forum_info(session: Session):
     user_dict = {}
     tag_dict = {}
 
-    with tqdm.tqdm() as pbar:
+    with tqdm.tqdm(desc="Fetching forum information") as pbar:
         while True:
             pbar.update(1)
             topics = requests.get(

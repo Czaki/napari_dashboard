@@ -106,7 +106,9 @@ def save_stars(user: str, repo: str, session: Session) -> None:
 
     stargazers = gh_repo.get_stargazers_with_dates()
 
-    for star in tqdm(stargazers, total=gh_repo.stargazers_count):
+    for star in tqdm(
+        stargazers, total=gh_repo.stargazers_count, desc=f"Stars {user}/{repo}"
+    ):
         ensure_user(star.user.login, session)
         if (
             session.query(Stars)
@@ -218,7 +220,9 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
     )
 
     pr_iter = gh_repo.get_pulls(state="all")
-    for pr in tqdm(pr_iter, total=pr_iter.totalCount):
+    for pr in tqdm(
+        pr_iter, total=pr_iter.totalCount, desc=f"Pull Requests {user}/{repo}"
+    ):
         ensure_user(pr.user.login, session)
         # check if pull request is already saved and check if there is a need to update
         # merge status and labels
@@ -280,7 +284,9 @@ def save_issues(user: str, repo: str, session: Session) -> None:
         .count()
     )
     issue_iter = gh_repo.get_issues(state="all")
-    for issue in tqdm(issue_iter, total=issue_iter.totalCount):
+    for issue in tqdm(
+        issue_iter, total=issue_iter.totalCount, desc=f"Issues {user}/{repo}"
+    ):
         ensure_user(issue.user.login, session)
         # check if issue is already saved
         issue_li = (
@@ -332,7 +338,11 @@ def update_artifact_download(user: str, repo: str, session: Session):
 
     releases = gh_repo.get_releases()
 
-    for release in tqdm(releases, total=releases.totalCount):
+    for release in tqdm(
+        releases,
+        total=releases.totalCount,
+        desc=f"Artifact downloads {user}/{repo}",
+    ):
         if release.prerelease:
             continue
         release_model = get_or_create(
