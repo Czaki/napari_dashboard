@@ -8,6 +8,30 @@ from napari_dashboard.db_schema.imagesc import ForumTag, ForumTopic, ForumUser
 from napari_dashboard.db_update.util import get_or_create
 
 
+def save_user_info(
+    session: Session, user_dict: dict[str, ForumUser], user_data: dict
+):
+    for user in user_data:
+        if user["id"] in user_dict:
+            continue
+        user = get_or_create(
+            session,
+            ForumUser,
+            id=user["id"],
+            username=user["username"],
+            name=user["name"],
+        )
+        user_dict[user.id] = user
+
+
+def save_tag_info(
+    session: Session, tag_dict: dict[str, ForumTag], tag_data: list[str]
+):
+    for tag in tag_data:
+        if tag not in tag_dict:
+            tag_dict[tag] = get_or_create(session, ForumTag, name=tag)
+
+
 def save_forum_info(session: Session):
     index = 1
     user_dict = {}
@@ -26,24 +50,10 @@ def save_forum_info(session: Session):
             if not topics["topic_list"]["topics"]:
                 break
 
-            for user in topics["users"]:
-                if user["id"] in user_dict:
-                    continue
-                user = get_or_create(
-                    session,
-                    ForumUser,
-                    id=user["id"],
-                    username=user["username"],
-                    name=user["name"],
-                )
-                user_dict[user.id] = user
+            save_user_info(session, user_dict, topics["users"])
 
             for topic in topics["topic_list"]["topics"]:
-                for tag in topic["tags"]:
-                    if tag not in tag_dict:
-                        tag_dict[tag] = get_or_create(
-                            session, ForumTag, name=tag
-                        )
+                save_tag_info(session, tag_dict, topic["tags"])
 
                 topic_list = (
                     session.query(ForumTopic)
