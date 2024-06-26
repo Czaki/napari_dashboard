@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from napari_dashboard.db_schema.pypi import (
     OperatingSystem,
     PePyDownloadStat,
+    PePyTotalDownloads,
     PyPi,
     PyPiDownloadPerOS,
     PyPiDownloadPerPythonVersion,
@@ -89,6 +90,9 @@ def _save_pepy_download_stat(session: Session, package: str):
         f"https://pepy.tech/api/v2/projects/{package}",
         headers={"X-Api-Key": os.environ["PEPY_KEY"]},
     ).json()
+    session.merge(
+        PePyTotalDownloads(name=package, downloads=pepy["total_downloads"])
+    )
     for day, downloads in pepy["downloads"].items():
         day_date = datetime.date.fromisoformat(day)
         for version, count in downloads.items():
@@ -119,6 +123,7 @@ def save_pepy_download_stat(session: Session):
         get_packages_to_fetch(), desc="Fetching pepy plugin stats"
     ):
         _save_pepy_download_stat(session, plugin)
+    session.commit()
 
 
 def init_os(session: Session):

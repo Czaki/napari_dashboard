@@ -54,6 +54,13 @@ class PePyDownloadStat(Base):
     date: Mapped[Date] = Column(Date)
 
 
+class PePyTotalDownloads(Base):
+    __tablename__ = "pepy_total_downloads"
+
+    name: Mapped[str] = Column(String, primary_key=True)
+    downloads: Mapped[int] = Column(Integer)
+
+
 class PyPiStatsDownloads(Base):
     __tablename__ = "pypi_stats_downloads"
     __table_args__ = (PrimaryKeyConstraint("name", "date"),)
