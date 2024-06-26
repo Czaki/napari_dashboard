@@ -129,13 +129,13 @@ def get_weekly_download_per_os(session: Session, package: str, since: date):
 def get_weekly_download_per_python_version(
     session: Session, package: str, since: date
 ):
-    return dict(
+    return (
         session.query(
-            PyPiDownloadPerPythonVersion.python_version,
+            PyPiDownloadPerPythonVersion.python_version_name,
             func.sum(PyPiDownloadPerPythonVersion.downloads),
         )
         .filter(PyPiDownloadPerPythonVersion.package_name == package)
         .filter(PyPiDownloadPerPythonVersion.package_date >= since)
-        .group_by(PyPiDownloadPerPythonVersion.python_version)
+        .group_by(PyPiDownloadPerPythonVersion.python_version_name)
         .all()
     )

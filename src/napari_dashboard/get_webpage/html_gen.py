@@ -3,6 +3,8 @@ import datetime
 import os
 from pathlib import Path
 
+import pandas as pd
+import plotly.express as px
 import requests
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import create_engine
@@ -27,6 +29,7 @@ from napari_dashboard.gen_stat.pypi import (
     get_pepy_download_per_day,
     get_recent_releases_date,
     get_total_pypi_download,
+    get_weekly_download_per_python_version,
 )
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
@@ -211,8 +214,20 @@ def generate_webpage(
                 session, {"napari", "npe2", "napari-plugin-manager"}
             ),
         }
+        python_version_info = get_weekly_download_per_python_version(
+            session, "napari", date
+        )
 
-    print(conda_download_info)
+    df = pd.DataFrame(python_version_info, columns=["version", "downloads"])
+    py_version = px.pie(df, values="downloads", names="version").to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
+    df_downloads = pd.DataFrame(
+        napari_downloads_per_day.items(), columns=["date", "downloads"]
+    )
+    napari_downloads_per_day_plot = px.line(
+        df_downloads, x="date", y="downloads"
+    ).to_html(full_html=False, include_plotlyjs="cdn")
 
     # Data to be rendered
     data = {
@@ -243,6 +258,8 @@ def generate_webpage(
             "under_active_development": under_active_development,
             "skip": skip_plugins,
         },
+        "py_version": py_version,
+        "napari_downloads_per_day": napari_downloads_per_day_plot,
     }
     print("generating webpage")
 
