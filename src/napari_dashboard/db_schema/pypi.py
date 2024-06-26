@@ -76,6 +76,15 @@ class PyPiStatsDownloads(Base):
     )
 
 
+class PackageRelease(Base):
+    __tablename__ = "pypi_package_releases"
+    __table_args__ = (PrimaryKeyConstraint("name", "version"),)
+
+    name: Mapped[str] = Column(String)
+    version: Mapped[str] = Column(String)
+    release_date: Mapped[Date] = Column(Date)
+
+
 class OperatingSystem(Base):
     __tablename__ = "pypi_operating_systems"
 

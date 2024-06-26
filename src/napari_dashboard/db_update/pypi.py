@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.pypi import (
     OperatingSystem,
+    PackageRelease,
     PePyDownloadStat,
     PePyTotalDownloads,
     PyPi,
@@ -206,4 +207,30 @@ def save_pypi_download_information(session: Session):
     ):
         _save_pypi_download_information(session, plugin)
 
+    session.commit()
+
+
+def _save_package_release(session: Session, name: str):
+    data = requests.get(f"https://pypi.org/pypi/{name}/json").json()
+    if "releases" not in data:
+        return
+    for version, artifacts in data["releases"].items():
+        if not artifacts:
+            continue
+        release_date = min(
+            datetime.datetime.fromisoformat(x["upload_time"])
+            for x in artifacts
+        ).date()
+        session.merge(
+            PackageRelease(
+                name=name, version=version, release_date=release_date
+            )
+        )
+
+
+def save_package_release(session: Session):
+    for plugin in tqdm.tqdm(
+        get_packages_to_fetch(), desc="Fetching pypi release data"
+    ):
+        _save_package_release(session, plugin)
     session.commit()

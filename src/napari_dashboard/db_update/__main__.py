@@ -15,6 +15,7 @@ from napari_dashboard.db_update.github import (
 )
 from napari_dashboard.db_update.imagesc import save_forum_info
 from napari_dashboard.db_update.pypi import (
+    save_package_release,
     save_pepy_download_stat,
     save_pypi_download_information,
 )
@@ -54,6 +55,7 @@ def main():
         save_conda_download_information(session)
         save_pepy_download_stat(session)
         save_pypi_download_information(session)
+        save_package_release(session)
 
 
 if __name__ == "__main__":
