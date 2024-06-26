@@ -19,6 +19,6 @@ def generate_excel_file(file_path: Union[str, Path], session: Session):
                 continue
             try:
                 df = pd.read_sql_table(table.name, session.bind)
-                df.to_excel(writer, sheet_name=table.name, index=False)
+                df.to_excel(writer, sheet_name=table.name[:31], index=False)
             except ValueError:
                 logging.exception("Error while reading table %s", table.name)

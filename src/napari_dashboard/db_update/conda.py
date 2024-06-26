@@ -52,8 +52,8 @@ def save_conda_download_information(session: Session):
     )
     _save_conda_download_information_for_package(
         session,
-        "napari-plugin-engine",
-        "conda-forge/napari-plugin-engine",
+        "napari-plugin-manager",
+        "conda-forge/napari-plugin-manager",
         today,
     )
     _save_conda_download_information_for_package(

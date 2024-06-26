@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import re
 from functools import lru_cache
@@ -27,3 +29,7 @@ def plugin_name_list() -> list[str]:
     Return a list of all known plugin names
     """
     return list({normalized_name(p["name"]) for p in plugins_list()})
+
+
+def get_packages_to_fetch() -> list[str]:
+    return ["napari", "napari-plugin-manager", "npe2"] + plugin_name_list()

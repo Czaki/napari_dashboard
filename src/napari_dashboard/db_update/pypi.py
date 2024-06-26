@@ -20,7 +20,10 @@ from napari_dashboard.db_schema.pypi import (
     PyPiStatsDownloads,
     PythonVersion,
 )
-from napari_dashboard.plugins_info import plugin_name_list
+from napari_dashboard.plugins_info import (
+    get_packages_to_fetch,
+    plugin_name_list,
+)
 
 if typing.TYPE_CHECKING:
     from sqlalchemy import Engine
@@ -113,10 +116,6 @@ def _save_pepy_download_stat(session: Session, package: str):
                 )
             )
             # session.commit()
-
-
-def get_packages_to_fetch() -> list[str]:
-    return ["napari", "napari-plugin-engine", "npe2"] + plugin_name_list()
 
 
 def save_pepy_download_stat(session: Session):

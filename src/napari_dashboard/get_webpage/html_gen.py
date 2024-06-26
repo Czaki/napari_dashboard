@@ -1,10 +1,8 @@
 import contextlib
 import datetime
-import json
 import os
 from pathlib import Path
 
-import pypistats
 import requests
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import create_engine
@@ -12,13 +10,24 @@ from sqlalchemy.orm import Session
 from tqdm import tqdm
 
 from napari_dashboard.db_update.util import setup_cache
-from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
+from napari_dashboard.gen_stat.conda import (
+    get_conda_latest_download_info,
+    get_conda_total_download_info,
+    get_total_conda_download,
+)
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
     generate_contributors_stats,
 )
 from napari_dashboard.gen_stat.imagesc import get_topics_count
+from napari_dashboard.gen_stat.pypi import (
+    get_active_packages,
+    get_download_info,
+    get_pepy_download_per_day,
+    get_recent_releases_date,
+    get_total_pypi_download,
+)
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
 LABELS = [
@@ -164,6 +173,10 @@ def generate_webpage(
     engine = create_engine(f"sqlite:///{db_path.absolute()}")
     setup_cache(timeout=60 * 60 * 4)
 
+    skip_plugins = {"PartSeg", "skan"}
+    plugins = requests.get("https://api.napari.org/api/plugins").json()
+    valid_plugins = {x for x in plugins if x not in skip_plugins}
+
     with Session(engine) as session:
         stats = generate_basic_stats("napari", "napari", session, date, LABELS)
         stars = calc_stars_per_day_cumulative("napari", "napari", session)
@@ -174,56 +187,32 @@ def generate_webpage(
             date,
         )
         forums_stats = get_topics_count(date, session)
-
-    pypi_download_info = {
-        "Last day": {},
-        "Last week": {},
-        "Last month": {},
-        "Total": {},
-    }
-    conda_download_info = {"Total": {}, "Last version": {}}
-    pepy_download = {}
-
-    print("Fetch download data")
-    for package in ("napari", "npe2", "napari-plugin-manager"):
-        pypi_stats = json.loads(pypistats.recent(package, format="json"))
-        pypi_download_info["Last day"][package] = pypi_stats["data"][
-            "last_day"
-        ]
-        pypi_download_info["Last week"][package] = pypi_stats["data"][
-            "last_week"
-        ]
-        pypi_download_info["Last month"][package] = pypi_stats["data"][
-            "last_month"
-        ]
-
-        pepy = requests.get(
-            f"https://pepy.tech/api/v2/projects/{package}",
-            headers={"X-Api-Key": os.environ["PEPY_KEY"]},
-        ).json()
-        pepy_download[package] = pepy
-        pypi_download_info["Total"][package] = pepy["total_downloads"]
-        total_downloads, last_version = get_conda_downloads(
-            f"conda-forge/{package}"
+        pypi_download_info = get_download_info(
+            session, ["napari", "npe2", "napari-plugin-manager"]
         )
-        conda_download_info["Total"][package] = total_downloads
-        conda_download_info["Last version"][package] = last_version
+        napari_downloads_per_day = get_pepy_download_per_day(session, "napari")
+        active_plugin_stats = get_active_packages(
+            session, packages=valid_plugins, threshold=1500
+        )
+        all_plugin_downloads_from_pypi = get_total_pypi_download(
+            session, valid_plugins
+        )
+        all_plugin_downloads_from_conda = get_total_conda_download(
+            session, valid_plugins
+        )
+        under_active_development = get_recent_releases_date(
+            session, valid_plugins, date
+        )
+        conda_download_info = {
+            "Total": get_conda_total_download_info(
+                session, {"napari", "npe2", "napari-plugin-manager"}
+            ),
+            "Last version": get_conda_latest_download_info(
+                session, {"napari", "npe2", "napari-plugin-manager"}
+            ),
+        }
 
-    print("fetching plugin data")
-    skip_plugins = {"PartSeg", "skan"}
-    plugin_download = get_plugin_downloads(skip_plugins)
-    active_plugin_stats = active_plugins(plugin_download, last_mont_count=1500)
-    all_plugin_downloads_from_pypi = sum(
-        v["total_downloads"] for v in plugin_download.values()
-    )
-    all_plugin_downloads_from_conda = sum(
-        v["conda_download"] for v in plugin_download.values()
-    )
-    under_active_development = plugins_released_since(plugin_download, date)
-    napari_downloads_per_day = {
-        k: sum(v.values())
-        for k, v in pepy_download["napari"]["downloads"].items()
-    }
+    print(conda_download_info)
 
     # Data to be rendered
     data = {
@@ -235,9 +224,9 @@ def generate_webpage(
             {"day": f"{x['day'].strftime('%Y-%m-%d')}", "stars": x["stars"]}
             for x in stars
         ],
-        "napari_downloads_per_day_dates": list(
-            napari_downloads_per_day.keys()
-        ),
+        "napari_downloads_per_day_dates": [
+            x.isoformat() for x in napari_downloads_per_day
+        ],
         "napari_downloads_per_day_values": list(
             napari_downloads_per_day.values()
         ),
@@ -251,7 +240,7 @@ def generate_webpage(
             "all_plugin_downloads_from_pypi": all_plugin_downloads_from_pypi,
             "all_plugin_downloads_from_conda": all_plugin_downloads_from_conda,
             "active": len(active_plugin_stats),
-            "under_active_development": len(under_active_development),
+            "under_active_development": under_active_development,
             "skip": skip_plugins,
         },
     }
@@ -279,8 +268,10 @@ def generate_webpage(
     with open(target_path / "color-modes.js", "w") as f:
         f.write(color_mode_template.render(data))
 
-    with Session(engine) as session:
-        generate_excel_file(target_path / "napari_dashboard.xlsx", session)
+    print("Save data to excel")
+
+    # with Session(engine) as session:
+    #     generate_excel_file(target_path / "napari_dashboard.xlsx", session)
 
     # Print the rendered HTML
 
