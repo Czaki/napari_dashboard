@@ -1,11 +1,23 @@
 from __future__ import annotations
 
 import datetime
+import os
 import typing
+from time import sleep
 
+import requests
+import tqdm
 from sqlalchemy.orm import Session
 
-from napari_dashboard.db_schema.pypi import PyPi
+from napari_dashboard.db_schema.pypi import (
+    OperatingSystem,
+    PePyDownloadStat,
+    PyPi,
+    PyPiDownloadPerOS,
+    PyPiDownloadPerPythonVersion,
+    PyPiStatsDownloads,
+    PythonVersion,
+)
 from napari_dashboard.plugins_info import plugin_name_list
 
 if typing.TYPE_CHECKING:
@@ -70,3 +82,123 @@ def build_new_projects_query(engine: Engine) -> str:
         timestamp_lower=START_DATE,
         timestamp_upper=get_now_timestamp(),
     )
+
+
+def _save_pepy_download_stat(session: Session, package: str):
+    pepy = requests.get(
+        f"https://pepy.tech/api/v2/projects/{package}",
+        headers={"X-Api-Key": os.environ["PEPY_KEY"]},
+    ).json()
+    for day, downloads in pepy["downloads"].items():
+        day_date = datetime.date.fromisoformat(day)
+        for version, count in downloads.items():
+            # if (pepy := session.query(PePyDownloadStat).filter(
+            #     PePyDownloadStat.name == package,
+            #     PePyDownloadStat.version == version,
+            #     PePyDownloadStat.date == day_date,
+            # ).first()) is not None:
+            #     pepy.downloads = count
+            # else:
+            session.merge(
+                PePyDownloadStat(
+                    name=package,
+                    version=version,
+                    date=day_date,
+                    downloads=count,
+                )
+            )
+            # session.commit()
+
+
+def get_packages_to_fetch() -> list[str]:
+    return ["napari", "napari-plugin-engine", "npe2"] + plugin_name_list()
+
+
+def save_pepy_download_stat(session: Session):
+    for plugin in tqdm.tqdm(
+        get_packages_to_fetch(), desc="Fetching pepy plugin stats"
+    ):
+        _save_pepy_download_stat(session, plugin)
+
+
+def init_os(session: Session):
+    all_os = {x[0] for x in session.query(OperatingSystem.name).all()}
+    for os_ in ("darwin", "linux", "windows", "other", "null"):
+        if os_ not in all_os:
+            session.add(OperatingSystem(name=os_))
+
+
+def init_python_version(session: Session):
+    all_python_version = {
+        x[0] for x in session.query(PythonVersion.version).all()
+    }
+    for python_version in [f"3.{num}" for num in range(6, 19)] + ["null"]:
+        if python_version not in all_python_version:
+            session.add(PythonVersion(version=python_version))
+
+
+def _fetch_pypi_download_information(url: str, depth=10):
+    result = requests.get(url)
+    if result.status_code == 429:
+        sleep(1)
+        if depth == 0:
+            raise ValueError("Too many timeouts for pypi stats")
+        return _fetch_pypi_download_information(url, depth - 1)
+    if result.status_code != 200:
+        raise ValueError(
+            f"Error fetching pypi info for {url} with status {result.status_code} and body {result.text}"
+        )
+    return result.json()
+
+
+def _save_pypi_download_information(session: Session, package: str):
+    overall = _fetch_pypi_download_information(
+        f"https://pypistats.org/api/packages/{package}/overall"
+    )
+    python_minor = _fetch_pypi_download_information(
+        f"https://pypistats.org/api/packages/{package}/python_minor"
+    )
+    system = _fetch_pypi_download_information(
+        f"https://pypistats.org/api/packages/{package}/system"
+    )
+
+    for el in overall["data"]:
+        session.merge(
+            PyPiStatsDownloads(
+                name=package,
+                date=datetime.date.fromisoformat(el["date"]),
+                downloads=el["downloads"],
+            )
+        )
+    for el in python_minor["data"]:
+        session.merge(
+            PyPiDownloadPerPythonVersion(
+                package_name=package,
+                package_date=datetime.date.fromisoformat(el["date"]),
+                python_version_name=el["category"],
+                downloads=el["downloads"],
+            )
+        )
+    for el in system["data"]:
+        session.merge(
+            PyPiDownloadPerOS(
+                package_name=package,
+                package_date=datetime.date.fromisoformat(el["date"]),
+                os_name=el["category"],
+                downloads=el["downloads"],
+            )
+        )
+
+
+def save_pypi_download_information(session: Session):
+    init_os(session)
+    session.commit()
+    init_python_version(session)
+    session.commit()
+
+    for plugin in tqdm.tqdm(
+        get_packages_to_fetch(), desc="Fetching pypistats data"
+    ):
+        _save_pypi_download_information(session, plugin)
+
+    session.commit()

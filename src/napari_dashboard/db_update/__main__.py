@@ -14,6 +14,10 @@ from napari_dashboard.db_update.github import (
     update_artifact_download,
 )
 from napari_dashboard.db_update.imagesc import save_forum_info
+from napari_dashboard.db_update.pypi import (
+    save_pepy_download_stat,
+    save_pypi_download_information,
+)
 from napari_dashboard.db_update.util import setup_cache
 
 
@@ -48,6 +52,8 @@ def main():
         update_github(session)
         save_forum_info(session)
         save_conda_download_information(session)
+        save_pepy_download_stat(session)
+        save_pypi_download_information(session)
 
 
 if __name__ == "__main__":
