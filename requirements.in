@@ -15,3 +15,5 @@ jupyterlab
 jupyter
 tqdm
 pypistats[numpy,pandas]
+pandas
+plotly

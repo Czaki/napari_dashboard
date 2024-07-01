@@ -5,6 +5,7 @@ from pathlib import Path
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import requests
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import create_engine
@@ -229,6 +230,26 @@ def generate_webpage(
         df_downloads, x="date", y="downloads"
     ).to_html(full_html=False, include_plotlyjs="cdn")
 
+    napari_issue_activity = go.Figure()
+    napari_issue_activity.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["issues_open_cumulative"],
+            mode="lines",
+            name="Issues open",
+        )
+    )
+    napari_issue_activity.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["issues_closed_cumulative"],
+            mode="lines",
+            name="Issues close",
+        )
+    )
+    napari_issue_activity_plot = napari_issue_activity.to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
     # Data to be rendered
     data = {
         "title": "Napari dashboard",
@@ -260,6 +281,7 @@ def generate_webpage(
         },
         "py_version": py_version,
         "napari_downloads_per_day": napari_downloads_per_day_plot,
+        "napari_issue_activity": napari_issue_activity_plot,
     }
     print("generating webpage")
 
