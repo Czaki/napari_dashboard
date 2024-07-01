@@ -1,6 +1,4 @@
-import contextlib
 import datetime
-import os
 from pathlib import Path
 
 import pandas as pd
@@ -10,7 +8,6 @@ import requests
 from jinja2 import Environment, FileSystemLoader
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
-from tqdm import tqdm
 
 from napari_dashboard.db_update.util import setup_cache
 from napari_dashboard.gen_stat.conda import (
@@ -44,121 +41,8 @@ LABELS = [
 ]
 
 
-def get_conda_downloads(name):
-    if name is None:
-        return 0, 0
-    conda_info_res = requests.get(f"https://api.anaconda.org/package/{name}")
-    if conda_info_res.status_code != 200:
-        raise ValueError(
-            f"Error fetching conda info for {name} with status {conda_info_res.status_code} and body {conda_info_res.text}"
-        )
-    conda_info = conda_info_res.json()
-    total_downloads = sum(file["ndownloads"] for file in conda_info["files"])
-    last_version = conda_info["files"][-1]["ndownloads"]
-    return total_downloads, last_version
-
-
 def get_plugin_count():
     return len(requests.get("https://api.napari.org/api/plugins").json())
-
-
-def get_plugin_downloads(skip=None):
-    if skip is None:
-        skip = set()
-    plugins = requests.get("https://api.napari.org/api/plugins").json()
-    conda_translation = requests.get("https://api.napari.org/api/conda").json()
-    res_dict = {}
-    for plugin in tqdm(plugins):
-        if plugin in skip:
-            continue
-        with contextlib.suppress(KeyError):
-            res_dict[plugin] = get_package_downloads(plugin, conda_translation)
-    return res_dict
-
-
-def get_package_downloads(package, conda_translation):
-    pepy = requests.get(
-        f"https://pepy.tech/api/v2/projects/{package}",
-        headers={"X-Api-Key": os.environ["PEPY_KEY"]},
-    ).json()
-    pepy["downloads"] = {
-        datetime.date.fromisoformat(k): v for k, v in pepy["downloads"].items()
-    }
-    yesterday = datetime.date.today() - datetime.timedelta(
-        days=1
-    )  # our data source has one day delay
-    week_ago = yesterday - datetime.timedelta(days=7)
-    month_ago = yesterday - datetime.timedelta(days=30)
-    pepy["last_day"] = sum(pepy["downloads"].get(yesterday, {"": 0}).values())
-    pepy["last_week"] = sum(
-        sum(v.values())
-        for k, v in pepy["downloads"].items()
-        if week_ago <= k <= yesterday
-    )
-    pepy["last_month"] = sum(
-        sum(v.values())
-        for k, v in pepy["downloads"].items()
-        if month_ago <= k <= yesterday
-    )
-    pepy["release_date"] = get_plugin_last_release_date(package)
-    pepy["conda_download"] = (
-        0
-        if package not in conda_translation
-        else get_conda_downloads(conda_translation[package])[0]
-    )
-    return pepy
-
-
-def active_plugins(plugin_info: dict, last_mont_count: int = 1500) -> dict:
-    """
-    Get list of active plugins
-
-    Parameters
-    ----------
-    plugin_info : dict
-        Dictionary with plugin info
-    last_mont_count : int
-        Lower threshold for plugin activity based on downloads
-
-    Returns
-    -------
-    dict
-        Dictionary with active plugins
-    """
-    return {
-        k: v
-        for k, v in plugin_info.items()
-        if v["last_month"] > last_mont_count
-    }
-
-
-def plugins_released_since(plugin_info: dict, since: datetime.date):
-    """
-    Get list of plugins released since given date
-
-    Parameters
-    ----------
-    plugin_info : dict
-        Dictionary with plugin info
-    since : datetime.date
-        Date to compare with
-
-    Returns
-    -------
-    dict
-        Dictionary with plugins released since given date
-    """
-    return {k: v for k, v in plugin_info.items() if v["release_date"] >= since}
-
-
-def get_plugin_last_release_date(plugin_name: str) -> datetime.datetime:
-    data = requests.get(f"https://pypi.org/pypi/{plugin_name}/json").json()
-    last_release = data["info"]["version"]
-
-    release_info = data["releases"][last_release]
-    return min(
-        datetime.datetime.fromisoformat(x["upload_time"]) for x in release_info
-    )
 
 
 def generate_webpage(
