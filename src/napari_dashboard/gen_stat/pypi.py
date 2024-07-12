@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 
+from packaging.version import parse as parse_version
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -129,13 +130,17 @@ def get_weekly_download_per_os(session: Session, package: str, since: date):
 def get_weekly_download_per_python_version(
     session: Session, package: str, since: date
 ):
-    return (
-        session.query(
-            PyPiDownloadPerPythonVersion.python_version_name,
-            func.sum(PyPiDownloadPerPythonVersion.downloads),
-        )
-        .filter(PyPiDownloadPerPythonVersion.package_name == package)
-        .filter(PyPiDownloadPerPythonVersion.package_date >= since)
-        .group_by(PyPiDownloadPerPythonVersion.python_version_name)
-        .all()
+    return sorted(
+        filter(
+            lambda x: x[0] != "null" and x[1] > 100,
+            session.query(
+                PyPiDownloadPerPythonVersion.python_version_name,
+                func.sum(PyPiDownloadPerPythonVersion.downloads),
+            )
+            .filter(PyPiDownloadPerPythonVersion.package_name == package)
+            .filter(PyPiDownloadPerPythonVersion.package_date >= since)
+            .group_by(PyPiDownloadPerPythonVersion.python_version_name)
+            .all(),
+        ),
+        key=lambda x: parse_version(x[0]),
     )
