@@ -45,6 +45,120 @@ def get_plugin_count():
     return len(requests.get("https://api.napari.org/api/plugins").json())
 
 
+LEGEND_POS = {"x": 0.01, "y": 0.95}
+
+
+def generate_issue_plot(stats: dict):
+    plot = go.Figure()
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["issues_open_cumulative"],
+            mode="lines",
+            name="Issues open",
+        )
+    )
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["issues_closed_cumulative"],
+            mode="lines",
+            name="Issues close",
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def generate_issue_plot2(stats: dict):
+    plot = go.Figure()
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"],
+            y=stats["pr_issue_time_stats"]["issues_open_weekly"],
+            name="Issues open per week",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"],
+            y=stats["pr_issue_time_stats"]["issues_closed_weekly"],
+            name="Issues close per week",
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def generate_pull_request_plot(stats: dict):
+    plot = go.Figure()
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["pr_open_cumulative"],
+            mode="lines",
+            name="Pull Requests open",
+        )
+    )
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["pr_closed_cumulative"],
+            mode="lines",
+            name="Pull Requests close",
+        )
+    )
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["days"],
+            y=stats["pr_issue_time_stats"]["pr_merged_cumulative"],
+            mode="lines",
+            name="Pull Requests merged",
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def generate_pull_request_plot2(stats: dict):
+    plot = go.Figure()
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"],
+            y=stats["pr_issue_time_stats"]["pr_open_weekly"],
+            name="Pull Requests open per week",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"],
+            y=stats["pr_issue_time_stats"]["pr_closed_weekly"],
+            name="Pull Requests close per week",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"],
+            y=stats["pr_issue_time_stats"]["pr_merged_weekly"],
+            name="Pull Requests merged per week",
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def generate_stars_plot(stars: dict):
+    plot = go.Figure()
+    plot.add_trace(
+        go.Scatter(
+            x=stars["day"], y=stars["stars"], mode="lines", name="Stars"
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
 def generate_webpage(
     target_path: Path, db_path: Path, date: datetime.datetime
 ) -> None:
@@ -68,7 +182,7 @@ def generate_webpage(
     with Session(engine) as session:
         stats = generate_basic_stats("napari", "napari", session, date, LABELS)
         stars = calc_stars_per_day_cumulative("napari", "napari", session)
-        stats["stars"] = stars[-1]["stars"]
+        stats["stars"] = stars["stars"][-1]
         stats["contributors"] = generate_contributors_stats(
             [("napari", "napari"), ("napari", "docs"), ("napari", "npe2")],
             session,
@@ -114,36 +228,12 @@ def generate_webpage(
         df_downloads, x="date", y="downloads"
     ).to_html(full_html=False, include_plotlyjs="cdn")
 
-    napari_issue_activity = go.Figure()
-    napari_issue_activity.add_trace(
-        go.Scatter(
-            x=stats["pr_issue_time_stats"]["days"],
-            y=stats["pr_issue_time_stats"]["issues_open_cumulative"],
-            mode="lines",
-            name="Issues open",
-        )
-    )
-    napari_issue_activity.add_trace(
-        go.Scatter(
-            x=stats["pr_issue_time_stats"]["days"],
-            y=stats["pr_issue_time_stats"]["issues_closed_cumulative"],
-            mode="lines",
-            name="Issues close",
-        )
-    )
-    napari_issue_activity_plot = napari_issue_activity.to_html(
-        full_html=False, include_plotlyjs="cdn"
-    )
     # Data to be rendered
     data = {
         "title": "Napari dashboard",
         "project": "Napari",
         "author": "Grzegorz Bokota",
         "stats": stats,
-        "stars": [
-            {"day": f"{x['day'].strftime('%Y-%m-%d')}", "stars": x["stars"]}
-            for x in stars
-        ],
         "napari_downloads_per_day_dates": [
             x.isoformat() for x in napari_downloads_per_day
         ],
@@ -165,7 +255,11 @@ def generate_webpage(
         },
         "py_version": py_version,
         "napari_downloads_per_day": napari_downloads_per_day_plot,
-        "napari_issue_activity": napari_issue_activity_plot,
+        "issue_activity": generate_issue_plot(stats),
+        "issue_activity2": generate_issue_plot2(stats),
+        "pr_activity_plot": generate_pull_request_plot(stats),
+        "pr_activity_plot2": generate_pull_request_plot2(stats),
+        "stars_plot": generate_stars_plot(stars),
     }
     print("generating webpage")
 
@@ -174,16 +268,12 @@ def generate_webpage(
 
     # Load the template
     index_template = env.get_template("index.html")
-    dashboard_template = env.get_template("dashboard.js")
     dashboard_css_template = env.get_template("dashboard.css")
     color_mode_template = env.get_template("color-modes.js")
 
     # Render the template with data
     with open(target_path / "index.html", "w") as f:
         f.write(index_template.render(data))
-
-    with open(target_path / "dashboard.js", "w") as f:
-        f.write(dashboard_template.render(data))
 
     with open(target_path / "dashboard.css", "w") as f:
         f.write(dashboard_css_template.render(data))

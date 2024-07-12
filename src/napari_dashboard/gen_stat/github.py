@@ -58,7 +58,7 @@ def get_repo_model(user: str, repo: str, session: Session) -> Repository:
 
 def calc_stars_per_day_cumulative(
     user: str, repo: str, session: Session
-) -> list[dict[datetime.date, int]]:
+) -> dict:
     """
     Based on the data in the database, calculate the cumulative number of stars per day
 
@@ -73,7 +73,7 @@ def calc_stars_per_day_cumulative(
 
     Returns
     -------
-    list[dict]
+    dict
         a list of dictionaries with keys 'day' and 'stars'
 
     """
@@ -81,7 +81,7 @@ def calc_stars_per_day_cumulative(
     repo_model = get_repo_model(user, repo, session)
 
     count = 0
-    res = []
+    res = {"day": [], "stars": []}
     for el in (
         session.query(Stars.date, func.count(Stars.date))
         .filter(Stars.repository == repo_model.id)
@@ -90,7 +90,8 @@ def calc_stars_per_day_cumulative(
         .all()
     ):
         count += el[1]
-        res.append({"day": el[0], "stars": count})
+        res["day"].append(el[0])
+        res["stars"].append(count)
     return res
 
 

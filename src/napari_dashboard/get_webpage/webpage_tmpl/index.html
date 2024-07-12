@@ -539,13 +539,8 @@
                         <h1 class="h2" id="issue_plots_h">{{ project }} repository activity</h1>
                         Cumulative activity on napari repository
                     </div>
-                    {{ napari_issue_activity }}
-                    <canvas class="my-4 w-100" id="issue_stats_chart" width="900" height="380"></canvas>
-                    <a id="issue_zoom_reset" class="chart-action btn btn-secondary">Reset zoom</a>
-                    <a id="issue_zoom_toggle" class="chart-action btn btn-secondary">Toggle zoom</a>
-
-                    <canvas class="my-4 w-100" id="issue_stats_chart2" width="900" height="380"></canvas>
-                    <a id="issue_zoom_reset2" class="chart-action btn btn-secondary">Reset zoom</a>
+                    {{ issue_activity }}
+                    {{ issue_activity2 }}
                 {% endcall %}
 
                 {% call tab_content("Pull Request activity") %}
@@ -553,26 +548,21 @@
                         <h1 class="h2" id="pr_plots_h">{{ project }} repository activity</h1>
                         Cumulative activity on napari repository
                     </div>
-                    <canvas class="my-4 w-100" id="pr_stats_chart" width="900" height="380"></canvas>
-                    <a id="pr_zoom_reset" class="chart-action btn btn-secondary">Reset zoom</a>
-                    <a id="pr_zoom_toggle" class="chart-action btn btn-secondary">Toggle zoom</a>
-
-                    <canvas class="my-4 w-100" id="pr_stats_chart2" width="900" height="380"></canvas>
-                    <a id="pr_zoom_reset2" class="chart-action btn btn-secondary">Reset zoom</a>
+                    {{ pr_activity_plot }}
+                    {{ pr_activity_plot2 }}
                 {% endcall %}
                 {% call tab_content("GitHub Stars") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2" id="stars">{{ project }} github stars</h1>
                         Number of stars on the {{ project }} repository
                     </div>
-                    <canvas class="my-4 w-100" id="starsChart" width="900" height="380"></canvas>
+                    {{ stars_plot }}
                 {% endcall %}
                 {% call tab_content("Downloads") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
                         <h1 class="h2" id="downloads">{{ project }} download per day</h1>
                     </div>
                     {{ napari_downloads_per_day }}
-                    <canvas class="my-4 w-100" id="downloadChart" width="900" height="380"></canvas>
                 {% endcall %}
             </div>
 
