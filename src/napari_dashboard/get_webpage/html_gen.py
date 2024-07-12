@@ -24,10 +24,11 @@ from napari_dashboard.gen_stat.imagesc import get_topics_count
 from napari_dashboard.gen_stat.pypi import (
     get_active_packages,
     get_download_info,
+    get_download_per_operating_system,
+    get_download_per_python_version,
     get_pepy_download_per_day,
     get_recent_releases_date,
     get_total_pypi_download,
-    get_weekly_download_per_python_version,
 )
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
@@ -175,6 +176,13 @@ def generate_python_version_pie_chart(python_version_info):
     )
 
 
+def generate_os_pie_chart(python_version_info):
+    df = pd.DataFrame(python_version_info, columns=["os", "downloads"])
+    return px.pie(df, values="downloads", names="os").to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
+
+
 def generate_webpage(
     target_path: Path, db_path: Path, date: datetime.datetime
 ) -> None:
@@ -229,9 +237,10 @@ def generate_webpage(
                 session, {"napari", "npe2", "napari-plugin-manager"}
             ),
         }
-        python_version_info = get_weekly_download_per_python_version(
+        python_version_info = get_download_per_python_version(
             session, "napari", date
         )
+        os_info = get_download_per_operating_system(session, "napari", date)
 
     # Data to be rendered
     data = {
@@ -259,6 +268,7 @@ def generate_webpage(
             "skip": skip_plugins,
         },
         "py_version": generate_python_version_pie_chart(python_version_info),
+        "os_plot": generate_os_pie_chart(os_info),
         "napari_downloads_per_day": generate_download_per_day(
             napari_downloads_per_day
         ),

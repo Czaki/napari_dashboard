@@ -127,7 +127,7 @@ def get_weekly_download_per_os(session: Session, package: str, since: date):
     )
 
 
-def get_weekly_download_per_python_version(
+def get_download_per_python_version(
     session: Session, package: str, since: date
 ):
     return sorted(
@@ -143,4 +143,18 @@ def get_weekly_download_per_python_version(
             .all(),
         ),
         key=lambda x: parse_version(x[0]),
+    )
+
+
+def get_download_per_operating_system(
+    session: Session, package: str, since: date
+):
+    return (
+        session.query(
+            PyPiDownloadPerOS.os_name, func.sum(PyPiDownloadPerOS.downloads)
+        )
+        .filter(PyPiDownloadPerOS.package_name == package)
+        .filter(PyPiDownloadPerOS.package_date >= since)
+        .group_by(PyPiDownloadPerOS.os_name)
+        .all()
     )
