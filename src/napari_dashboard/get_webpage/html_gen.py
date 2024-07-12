@@ -159,6 +159,22 @@ def generate_stars_plot(stars: dict):
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
 
 
+def generate_download_per_day(napari_downloads_per_day):
+    df_downloads = pd.DataFrame(
+        napari_downloads_per_day.items(), columns=["date", "downloads"]
+    )
+    return px.line(df_downloads, x="date", y="downloads").to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
+
+
+def generate_python_version_pie_chart(python_version_info):
+    df = pd.DataFrame(python_version_info, columns=["version", "downloads"])
+    return px.pie(df, values="downloads", names="version").to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
+
+
 def generate_webpage(
     target_path: Path, db_path: Path, date: datetime.datetime
 ) -> None:
@@ -217,17 +233,6 @@ def generate_webpage(
             session, "napari", date
         )
 
-    df = pd.DataFrame(python_version_info, columns=["version", "downloads"])
-    py_version = px.pie(df, values="downloads", names="version").to_html(
-        full_html=False, include_plotlyjs="cdn"
-    )
-    df_downloads = pd.DataFrame(
-        napari_downloads_per_day.items(), columns=["date", "downloads"]
-    )
-    napari_downloads_per_day_plot = px.line(
-        df_downloads, x="date", y="downloads"
-    ).to_html(full_html=False, include_plotlyjs="cdn")
-
     # Data to be rendered
     data = {
         "title": "Napari dashboard",
@@ -253,8 +258,10 @@ def generate_webpage(
             "under_active_development": under_active_development,
             "skip": skip_plugins,
         },
-        "py_version": py_version,
-        "napari_downloads_per_day": napari_downloads_per_day_plot,
+        "py_version": generate_python_version_pie_chart(python_version_info),
+        "napari_downloads_per_day": generate_download_per_day(
+            napari_downloads_per_day
+        ),
         "issue_activity": generate_issue_plot(stats),
         "issue_activity2": generate_issue_plot2(stats),
         "pr_activity_plot": generate_pull_request_plot(stats),

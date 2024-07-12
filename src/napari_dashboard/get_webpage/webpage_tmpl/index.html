@@ -525,8 +525,6 @@
             There are {{ forum.active_topics_count }} topics active since {{ base_day }}
             that engagement {{ forum.active_users_count }} users.
 
-            {{ py_version }}
-
             <ul class="nav nav-tabs" id="plot_tab" role="tablist">
                 {{ tab_header("Issue activity", "active") }}
                 {{ tab_header("Pull Request activity") }}
@@ -563,6 +561,7 @@
                         <h1 class="h2" id="downloads">{{ project }} download per day</h1>
                     </div>
                     {{ napari_downloads_per_day }}
+                    {{ py_version }}
                 {% endcall %}
             </div>
 
