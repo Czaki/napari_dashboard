@@ -23,6 +23,7 @@ jobs:
       with:
         project_id: 'napari-dashboard'
         service_account: 'dashboard-gha@napari-dashboard.iam.gserviceaccount.com'
+        credentials_json: ${{ secrets.CREDENTIALS_JSON}}
         token_format: 'access_token'
     - name: Install dependencies
       run: |
