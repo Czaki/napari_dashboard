@@ -34,7 +34,7 @@ jobs:
       run: |
         python -m napari_dashboard.get_webpage.gdrive
       env:
-        PEPY_KEY: ${{ secrets.PEPY_KEY }
+        PEPY_KEY: ${{ secrets.PEPY_KEY }}
         GH_TOKEN_: ${{ secrets.GH_TOKEN }}
         # I'm using GH_TOKEN_ because using GITHUB_TOKEN during development crash gh app
 
