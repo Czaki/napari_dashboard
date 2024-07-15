@@ -1,11 +1,16 @@
+from __future__ import annotations
+
 import argparse
+import datetime
 import logging
+import typing
 from pathlib import Path
 
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.base import Base
+from napari_dashboard.db_schema.helper_models import UpdateDBInfo
 from napari_dashboard.db_update.conda import save_conda_download_information
 from napari_dashboard.db_update.github import (
     save_issues,
@@ -20,6 +25,21 @@ from napari_dashboard.db_update.pypi import (
     save_pypi_download_information,
 )
 from napari_dashboard.db_update.util import setup_cache
+
+if typing.TYPE_CHECKING:
+    from collections.abc import Sequence
+
+
+def check_if_recently_updated(session: Session) -> bool:
+    twelve_hours_ago = datetime.datetime.now() - datetime.timedelta(hours=12)
+    last_update = (
+        session.query(UpdateDBInfo)
+        .filter(UpdateDBInfo.datetime > twelve_hours_ago)
+        .first()
+    )
+    if last_update is None:
+        return False
+    return last_update.datetime.date() == UpdateDBInfo.datetime.date()
 
 
 def update_github(session: Session):
@@ -38,10 +58,10 @@ def update_github(session: Session):
     update_artifact_download("napari", "napari", session)
 
 
-def main():
+def main(args: Sequence[str] | None = None):
     parser = argparse.ArgumentParser()
     parser.add_argument("db_path", help="Path to the database", type=Path)
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     setup_cache()
     logging.basicConfig(level=logging.INFO)
@@ -50,12 +70,17 @@ def main():
     Base.metadata.create_all(engine)
 
     with Session(engine) as session:
+        if check_if_recently_updated(session):
+            logging.info("Database was recently updated, skipping update")
+            return
         update_github(session)
         save_forum_info(session)
         save_conda_download_information(session)
         save_pepy_download_stat(session)
         save_pypi_download_information(session)
         save_package_release(session)
+        session.add(UpdateDBInfo(datetime=datetime.datetime.now()))
+        session.commit()
 
 
 if __name__ == "__main__":

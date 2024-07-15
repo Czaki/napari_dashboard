@@ -1,0 +1,45 @@
+name: Build and Deploy dashboard
+
+on:
+  push:
+    branches:
+    - main
+  workflow_dispatch:
+  schedule:
+    - cron: '0 8 * * *'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+    - uses: 'google-github-actions/auth@v2'
+      with:
+        project_id: 'napari-dashboard'
+        service_account: 'dashboard-gha@napari-dashboard.iam.gserviceaccount.com'
+        token_format: 'access_token'
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install requirements.txt
+        pip install -e . -c requirements.txt
+
+    - name: Build the dashboard
+      run: |
+        python -m napari_dashboard.get_webpage.gdrive
+      env:
+        PEPY_KEY: ${{ secrets.PEPY_KEY }
+        GH_TOKEN_: ${{ secrets.GH_TOKEN }}
+        # I'm using GH_TOKEN_ because using GITHUB_TOKEN during development crash gh app
+
+    - name: Deploy Docs
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./webpage

@@ -1,6 +1,13 @@
 html
 html_old
 *.sqlite
+client_secrets.json
+credentials.json
+dashboard.db
+dashboard.db-journal
+
+# Ignore generated credentials from google-github-actions/auth
+gha-creds-*.json
 
 # Created by https://www.toptal.com/developers/gitignore/api/python,pycharm+all,visualstudiocode,vim
 # Edit at https://www.toptal.com/developers/gitignore?templates=python,pycharm+all,visualstudiocode,vim
