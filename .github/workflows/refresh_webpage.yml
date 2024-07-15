@@ -23,7 +23,7 @@ jobs:
       with:
         project_id: 'napari-dashboard'
         service_account: 'dashboard-gha@napari-dashboard.iam.gserviceaccount.com'
-        credentials_json: ${{ secrets.CREDENTIALS_JSON}}
+        workload_identity_provider: 'projects/658648097154/locations/global/workloadIdentityPools/github/providers/napari-dashboard'
         token_format: 'access_token'
     - name: Install dependencies
       run: |
