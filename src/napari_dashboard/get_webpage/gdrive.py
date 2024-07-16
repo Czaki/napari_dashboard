@@ -70,9 +70,7 @@ def get_db_file():
     return None
 
 
-def upload_upload_xlsx_dump():
-    drive = GoogleDrive(get_auth())
-
+def create_excel_dump_file(drive):
     folders = drive.ListFile(
         {
             "q": "title='napari_dashboard' and mimeType='application/vnd.google-apps.folder' and trashed=false"
@@ -80,19 +78,23 @@ def upload_upload_xlsx_dump():
     ).GetList()
     for folder in folders:
         if folder["title"] == "napari_dashboard":
-            file = drive.CreateFile(
+            return drive.CreateFile(
                 {
                     "title": "napari_dashboard.xlsx",
                     "parents": [{"id": folder["id"]}],
                 }
             )
-            file.SetContentFile("webpage/napari_dashboard.xlsx")
-            file.Upload()
-            break
-    else:
-        print("Folder not found")
-        return
-    # print(file)
+    raise ValueError("Folder not found")
+
+
+def upload_upload_xlsx_dump():
+    drive = GoogleDrive(get_auth())
+    file_list = drive.ListFile(
+        {"q": "title='napari_dashboard.xlsx' and trashed=false"}
+    ).GetList()
+    file = file_list[0] if file_list else create_excel_dump_file(drive)
+    file.SetContentFile("webpage/napari_dashboard.xlsx")
+    file.Upload()
 
 
 def main():
