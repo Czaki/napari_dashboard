@@ -1,8 +1,10 @@
 html
 html_old
+webpage
 *.sqlite
 client_secrets.json
 credentials.json
+service-secrets.json
 dashboard.db
 dashboard.db-journal
 

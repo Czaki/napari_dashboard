@@ -39,7 +39,7 @@ def check_if_recently_updated(session: Session) -> bool:
     )
     if last_update is None:
         return False
-    return last_update.datetime.date() == UpdateDBInfo.datetime.date()
+    return last_update.datetime.date() == datetime.date.today()
 
 
 def update_github(session: Session):
