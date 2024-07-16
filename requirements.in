@@ -17,3 +17,4 @@ tqdm
 pypistats[numpy,pandas]
 plotly
 PyDrive2
+openpyxl

@@ -34,7 +34,8 @@ dependencies = [
     "jinja2",
     "pandas",
     "plotly",
-    "PyDrive2"
+    "PyDrive2",
+    "openpyxl"
 ]
 
 [project.urls]
