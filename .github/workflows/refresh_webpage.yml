@@ -24,7 +24,7 @@ jobs:
         python-version: 3.11
     - name: create service-secrets.json
       run: |
-        echo ${{ secrets.SERVICE_SECRETS }} > service-secrets.json
+        echo "${{ secrets.SERVICE_SECRETS }}" > service-secrets.json
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
