@@ -26,7 +26,16 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: CPython",
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
-dependencies = []
+dependencies = [
+    "sqlalchemy",
+    "tqdm",
+    "pygithub",
+    "requests_cache",
+    "jinja2",
+    "pandas",
+    "plotly",
+    "PyDrive2"
+]
 
 [project.urls]
 Documentation = "https://github.com/unknown/napari-dashboard-#readme"
