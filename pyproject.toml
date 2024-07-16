@@ -35,7 +35,7 @@ dependencies = [
     "pandas",
     "plotly",
     "PyDrive2",
-    "openpyxl"
+    "XlsxWriter"
 ]
 
 [project.urls]
