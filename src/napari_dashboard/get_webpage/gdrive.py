@@ -52,18 +52,47 @@ def login_with_service_account():
     return gauth
 
 
-def get_db_file():
+def get_auth():
     if os.path.exists("service-secrets.json"):
         gauth = login_with_service_account()
     else:
         gauth = login_with_local_webserver()
-    drive = GoogleDrive(gauth)
+    return gauth
+
+
+def get_db_file():
+    drive = GoogleDrive(get_auth())
     file_list = drive.ListFile(
         {"q": "title='dashboard.db' and trashed=false"}
     ).GetList()
     if file_list:
         return file_list[0]
     return None
+
+
+def upload_upload_xlsx_dump():
+    drive = GoogleDrive(get_auth())
+
+    folders = drive.ListFile(
+        {
+            "q": "title='napari_dashboard' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+        }
+    ).GetList()
+    for folder in folders:
+        if folder["title"] == "napari_dashboard":
+            file = drive.CreateFile(
+                {
+                    "title": "napari_dashboard.xlsx",
+                    "parents": [{"id": folder["id"]}],
+                }
+            )
+            file.SetContentFile("webpage/napari_dashboard.xlsx")
+            file.Upload()
+            break
+    else:
+        print("Folder not found")
+        return
+    # print(file)
 
 
 def main():
@@ -82,6 +111,8 @@ def main():
     file = get_db_file()
     file.SetContentFile("dashboard.db")
     file.Upload()
+    print("Uploading xlsx dump")
+    upload_upload_xlsx_dump()
 
 
 if __name__ == "__main__":

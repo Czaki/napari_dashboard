@@ -15,6 +15,7 @@ from napari_dashboard.gen_stat.conda import (
     get_conda_total_download_info,
     get_total_conda_download,
 )
+from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
 from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
@@ -300,8 +301,8 @@ def generate_webpage(
 
     print("Save data to excel")
 
-    # with Session(engine) as session:
-    #     generate_excel_file(target_path / "napari_dashboard.xlsx", session)
+    with Session(engine) as session:
+        generate_excel_file(target_path / "napari_dashboard.xlsx", session)
 
     # Print the rendered HTML
 

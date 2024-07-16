@@ -46,3 +46,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./webpage
         publish_branch: gh_pages
+        exclude_assets: 'napari_dashboard.xlsx'
