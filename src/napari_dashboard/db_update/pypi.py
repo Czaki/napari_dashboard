@@ -145,7 +145,7 @@ def init_python_version(session: Session):
 def _fetch_pypi_download_information(url: str, depth=10):
     result = requests.get(url)
     if result.status_code == 429:
-        sleep(1)
+        sleep(30) if "CI" in os.environ else sleep(1)
         if depth == 0:
             raise ValueError("Too many timeouts for pypi stats")
         return _fetch_pypi_download_information(url, depth - 1)
