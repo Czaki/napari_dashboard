@@ -98,7 +98,7 @@ def upload_upload_db_dump():
 def get_db_file():
     drive = GoogleDrive(get_auth())
     file_list = drive.ListFile(
-        {"q": "title='dashboard.db.gz' and trashed=false"}
+        {"q": "title='dashboard.db.bz2' and trashed=false"}
     ).GetList()
     if file_list:
         return file_list[0]
@@ -136,13 +136,14 @@ def main():
     if db_file is not None:
         db_file.FetchMetadata(fields="md5Checksum")
         if not (
-            os.path.exists("dashboard.db.gz")
-            and calculate_md5("dashboard.db.gz") == db_file["md5Checksum"]
+            os.path.exists("dashboard.db.bz2")
+            and calculate_md5("dashboard.db.bz2") == db_file["md5Checksum"]
         ):
             print("download database")
-            db_file.GetContentFile("dashboard.db.gz")
+
+            db_file.GetContentFile("dashboard.db.bz2")
             print("uncompressing database")
-            uncompressed_file("dashboard.db.gz", "dashboard.db")
+            uncompressed_file("dashboard.db.bz2", "dashboard.db")
     else:
         print("Database not found")
 
