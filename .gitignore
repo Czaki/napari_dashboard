@@ -7,6 +7,8 @@ credentials.json
 service-secrets.json
 dashboard.db
 dashboard.db-journal
+bigquery_installs.zip
+dashboard.db.bz2
 
 # Ignore generated credentials from google-github-actions/auth
 gha-creds-*.json

@@ -1,3 +1,5 @@
+import bz2
+import hashlib
 import logging
 import os.path
 
@@ -60,17 +62,12 @@ def get_auth():
     return gauth
 
 
-def get_db_file():
-    drive = GoogleDrive(get_auth())
+def get_or_create_gdrive_file(drive, file_name):
     file_list = drive.ListFile(
-        {"q": "title='dashboard.db' and trashed=false"}
+        {"q": f"title='{file_name}' and trashed=false"}
     ).GetList()
     if file_list:
         return file_list[0]
-    return None
-
-
-def create_excel_dump_file(drive):
     folders = drive.ListFile(
         {
             "q": "title='napari_dashboard' and mimeType='application/vnd.google-apps.folder' and trashed=false"
@@ -79,29 +76,73 @@ def create_excel_dump_file(drive):
     for folder in folders:
         if folder["title"] == "napari_dashboard":
             return drive.CreateFile(
-                {
-                    "title": "napari_dashboard.xlsx",
-                    "parents": [{"id": folder["id"]}],
-                }
+                {"title": file_name, "parents": [{"id": folder["id"]}]}
             )
     raise ValueError("Folder not found")
 
 
 def upload_upload_xlsx_dump():
     drive = GoogleDrive(get_auth())
-    file_list = drive.ListFile(
-        {"q": "title='napari_dashboard.xlsx' and trashed=false"}
-    ).GetList()
-    file = file_list[0] if file_list else create_excel_dump_file(drive)
+    file = get_or_create_gdrive_file(drive, "napari_dashboard.xlsx")
     file.SetContentFile("webpage/napari_dashboard.xlsx")
     file.Upload()
 
 
+def upload_upload_db_dump():
+    drive = GoogleDrive(get_auth())
+    file = get_or_create_gdrive_file(drive, "dashboard.db.bz2")
+    file.SetContentFile("dashboard.db.bz2")
+    file.Upload()
+
+
+def get_db_file():
+    drive = GoogleDrive(get_auth())
+    file_list = drive.ListFile(
+        {"q": "title='dashboard.db.gz' and trashed=false"}
+    ).GetList()
+    if file_list:
+        return file_list[0]
+    return None
+
+
+def calculate_md5(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as f:
+        for chunk in iter(lambda: f.read(4096), b""):
+            hash_md5.update(chunk)
+    return hash_md5.hexdigest()
+
+
+def compress_file(original_file_path, compressed_file_path):
+    with (
+        open(original_file_path, "rb") as original_file,
+        bz2.open(compressed_file_path, "wb") as compressed_file,
+    ):
+        compressed_file.writelines(original_file)
+
+
+def uncompressed_file(compressed_file_path, original_file_path):
+    with (
+        bz2.open(compressed_file_path, "rb") as compressed_file,
+        open(original_file_path, "wb") as original_file,
+    ):
+        original_file.writelines(compressed_file)
+
+
 def main():
-    print("Downloading database")
+    print("fetching database")
+
     db_file = get_db_file()
     if db_file is not None:
-        db_file.GetContentFile("dashboard.db")
+        db_file.FetchMetadata(fields="md5Checksum")
+        if not (
+            os.path.exists("dashboard.db.gz")
+            and calculate_md5("dashboard.db.gz") == db_file["md5Checksum"]
+        ):
+            print("download database")
+            db_file.GetContentFile("dashboard.db.gz")
+            print("uncompressing database")
+            uncompressed_file("dashboard.db.gz", "dashboard.db")
     else:
         print("Database not found")
 
@@ -109,10 +150,10 @@ def main():
     db_update_main(["dashboard.db"])
     print("generating webpage")
     get_webpage_main(["webpage", "dashboard.db"])
+    print("Compressing database")
+    compress_file("dashboard.db", "dashboard.db.bz2")
     print("Uploading database")
-    file = get_db_file()
-    file.SetContentFile("dashboard.db")
-    file.Upload()
+    upload_upload_db_dump()
     print("Uploading xlsx dump")
     upload_upload_xlsx_dump()
 
