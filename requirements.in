@@ -18,3 +18,4 @@ pypistats[numpy,pandas]
 plotly
 PyDrive2
 XlsxWriter
+pycountry

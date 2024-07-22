@@ -1,5 +1,7 @@
+import math
 from datetime import date, timedelta
 
+import pycountry
 from packaging.version import parse as parse_version
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -158,3 +160,27 @@ def get_download_per_operating_system(
         .group_by(PyPiDownloadPerOS.os_name)
         .all()
     )
+
+
+def is_country(x):
+    return pycountry.countries.get(alpha_2=x) is not None
+
+
+def add_country_info(row):
+    country_info = pycountry.countries.get(alpha_2=row.COUNTRY_CODE)
+    if country_info is None:
+        print(row)
+    return country_info.alpha_3, country_info.name
+
+
+def add_plot_info(df):
+    sum_ = df["count"].sum()
+
+    def _add_plot_info(row):
+        percent = row["count"] / sum_ * 100
+        return (
+            math.log10(row["count"]),
+            f"{row.country_name}<br>Downloads: {row['count']}<br>Percent: {percent:.2f}%",
+        )
+
+    return _add_plot_info

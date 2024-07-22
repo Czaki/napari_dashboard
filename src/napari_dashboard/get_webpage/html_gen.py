@@ -1,4 +1,6 @@
 import datetime
+import math
+import os.path
 from pathlib import Path
 
 import pandas as pd
@@ -23,6 +25,8 @@ from napari_dashboard.gen_stat.github import (
 )
 from napari_dashboard.gen_stat.imagesc import get_topics_count
 from napari_dashboard.gen_stat.pypi import (
+    add_country_info,
+    add_plot_info,
     get_active_packages,
     get_download_info,
     get_download_per_operating_system,
@@ -30,6 +34,7 @@ from napari_dashboard.gen_stat.pypi import (
     get_pepy_download_per_day,
     get_recent_releases_date,
     get_total_pypi_download,
+    is_country,
 )
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
@@ -184,6 +189,41 @@ def generate_os_pie_chart(python_version_info):
     )
 
 
+def generate_download_map():
+    data = pd.read_csv(
+        os.path.join(os.path.dirname(__file__), "data", "countries.csv")
+    )
+    data = data[data.COUNTRY_CODE.map(is_country)]
+    data[["iso_alpha", "country_name"]] = data.apply(
+        add_country_info, axis=1, result_type="expand"
+    )
+    data[["log_download", "text"]] = data.apply(
+        add_plot_info(data), axis=1, result_type="expand"
+    )
+
+    log_download_max = math.ceil(data["log_download"].max())
+
+    return go.Figure(
+        data=go.Choropleth(
+            locations=data["iso_alpha"],
+            z=data["log_download"].astype(float),
+            locationmode="ISO-3",
+            colorscale="viridis",
+            autocolorscale=False,
+            text=data["text"],  # hover text
+            # marker_line_color='white', # line markers between states
+            hovertemplate="%{text}<extra>%{location}</extra>",
+            colorbar={
+                "title": "downloads",
+                "tickvals": list(range(log_download_max)),
+                "ticktext": [10**x for x in range(log_download_max)],
+                "tickmode": "array",
+            },
+        ),
+        layout={"height": 600},
+    ).to_html(full_html=False, include_plotlyjs="cdn")
+
+
 def generate_webpage(
     target_path: Path, db_path: Path, date: datetime.datetime
 ) -> None:
@@ -278,6 +318,7 @@ def generate_webpage(
         "pr_activity_plot": generate_pull_request_plot(stats),
         "pr_activity_plot2": generate_pull_request_plot2(stats),
         "stars_plot": generate_stars_plot(stars),
+        "download_map": generate_download_map(),
     }
     print("generating webpage")
 
