@@ -194,7 +194,110 @@ def generate_pull_request_plot3(stats: dict, since: datetime.datetime):
             name="Merged maintenance",
         )
     )
-    plot.update_layout(legend=LEGEND_POS)
+    plot.update_layout(
+        legend=LEGEND_POS,
+        title="Pull requests merged per week for specific labels",
+        barmode="stack",
+        xaxis_title="merged PRs / week",
+        yaxis_title="number of merged PRs",
+    )
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def calc_fraction_of_pr(stats, total):
+    return [x / t * 100 if t > 0 else 0 for x, t in zip(stats, total)]
+
+
+def generate_pull_request_plot4(stats: dict, since: datetime.datetime):
+    last_week_count = -(datetime.datetime.now() - since).days // 7
+    aggregated_data = [
+        sum(x)
+        for x in zip(
+            stats["pr_issue_time_stats"]["pr_merged_feature_weekly"],
+            stats["pr_issue_time_stats"]["pr_merged_enhancement_weekly"],
+            stats["pr_issue_time_stats"]["pr_merged_bugfix_weekly"],
+            stats["pr_issue_time_stats"]["pr_merged_maintenance_weekly"],
+        )
+    ]
+    plot = go.Figure()
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=calc_fraction_of_pr(
+                stats["pr_issue_time_stats"]["pr_merged_feature_weekly"],
+                aggregated_data,
+            )[last_week_count:],
+            name="Merged features",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=calc_fraction_of_pr(
+                stats["pr_issue_time_stats"]["pr_merged_enhancement_weekly"],
+                aggregated_data,
+            )[last_week_count:],
+            name="Merged enhancements",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=calc_fraction_of_pr(
+                stats["pr_issue_time_stats"]["pr_merged_bugfix_weekly"],
+                aggregated_data,
+            )[last_week_count:],
+            name="Merged bugfix",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=calc_fraction_of_pr(
+                stats["pr_issue_time_stats"]["pr_merged_maintenance_weekly"],
+                aggregated_data,
+            )[last_week_count:],
+            name="Merged maintenance",
+        )
+    )
+    plot.update_layout(
+        # legend=LEGEND_POS,
+        title="Fraction of pull requests merged per week for specific labels",
+        barmode="stack",
+        xaxis_title="merged PRs / week",
+        yaxis_title="fraction of merged PRs [%]",
+    )
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
+def generate_pull_request_plot5(stats: dict, since: datetime.datetime):
+    last_week_count = -(datetime.datetime.now() - since).days // 7
+    aggregated_data = [
+        sum(x)
+        for x in zip(
+            stats["pr_issue_time_stats"]["pr_merged_feature_weekly"],
+            stats["pr_issue_time_stats"]["pr_merged_enhancement_weekly"],
+        )
+    ]
+    fraction = calc_fraction_of_pr(
+        aggregated_data, stats["pr_issue_time_stats"]["pr_merged_weekly"]
+    )
+
+    plot = go.Figure()
+    plot.add_trace(
+        go.Scatter(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=fraction[last_week_count:],
+            mode="lines",
+            name="fraction of features and enhancements",
+        )
+    )
+    plot.update_layout(
+        # legend=LEGEND_POS,
+        title="Fraction of feature/enhancement pull requests merged per week",
+        xaxis_title="merged PRs / week",
+        yaxis_title="fraction of merged PRs [%]",
+    )
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
 
 
@@ -364,6 +467,8 @@ def generate_webpage(
         "pr_activity_plot": generate_pull_request_plot(stats),
         "pr_activity_plot2": generate_pull_request_plot2(stats),
         "pr_activity_plot3": generate_pull_request_plot3(stats, date),
+        "pr_activity_plot4": generate_pull_request_plot4(stats, date),
+        "pr_activity_plot5": generate_pull_request_plot5(stats, date),
         "stars_plot": generate_stars_plot(stars),
         "download_map": generate_download_map(),
     }
