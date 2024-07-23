@@ -45,6 +45,7 @@ CORE_DEVS = {
     "shanaxel42",
     "tlambert03",
     "potating-potato",
+    "lucyleeow",
 }
 
 
