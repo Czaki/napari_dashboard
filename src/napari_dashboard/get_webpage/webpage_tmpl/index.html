@@ -538,7 +538,7 @@
             <div class="tab-content" id="plots">
                 {% call tab_content("Issue activity", "show active") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 class="h2" id="issue_plots_h">{{ project }} repository activity</h1>
+                        <h1 class="h2" id="issue_plots_h">{{ project }} issues activity</h1>
                         Cumulative activity on napari repository
                     </div>
                     {{ issue_activity }}
@@ -547,11 +547,12 @@
 
                 {% call tab_content("Pull Request activity") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                        <h1 class="h2" id="pr_plots_h">{{ project }} repository activity</h1>
+                        <h1 class="h2" id="pr_plots_h">{{ project }} pull requests activity</h1>
                         Cumulative activity on napari repository
                     </div>
                     {{ pr_activity_plot }}
                     {{ pr_activity_plot2 }}
+                    {{ pr_activity_plot3 }}
                 {% endcall %}
                 {% call tab_content("GitHub Stars") %}
                     <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">

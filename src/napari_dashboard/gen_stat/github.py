@@ -405,6 +405,13 @@ def generate_contributors_stats(
     }
 
 
+def aggregate_weekly_stats(stat, weeks):
+    return [
+        sum(stat[j * 7 + i] for i in range(7) if j * 7 + i < len(stat))
+        for j in range(len(weeks))
+    ]
+
+
 def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
     repo_model = get_repo_model(user, repo, session)
     initial_date = min(
@@ -426,6 +433,21 @@ def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
     pr_open = [0] * len(days_array)
     pr_closed = [0] * len(days_array)
     pr_merged = [0] * len(days_array)
+    pr_merged_feature = [0] * len(days_array)
+    pr_merged_bugfix = [0] * len(days_array)
+    pr_merged_maintenance = [0] * len(days_array)
+    pr_merged_enhancement = [0] * len(days_array)
+    feature_label = (
+        session.query(Labels).filter(Labels.label == "feature").one()
+    )
+    bugfix_label = session.query(Labels).filter(Labels.label == "bugfix").one()
+    maintenance_label = (
+        session.query(Labels).filter(Labels.label == "maintenance").one()
+    )
+    enhancement_label = (
+        session.query(Labels).filter(Labels.label == "enhancement").one()
+    )
+
     for issue in (
         session.query(Issues).filter(Issues.repository == repo_model.id).all()
     ):
@@ -441,46 +463,38 @@ def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
         pr_open[index_dict[pull_request.open_time.date()]] += 1
         if pull_request.close_time is not None:
             pr_closed[index_dict[pull_request.close_time.date()]] += 1
-        if pull_request.merge_time is not None:
-            pr_merged[index_dict[pull_request.merge_time.date()]] += 1
+        if pull_request.merge_time is None:
+            continue
+
+        pr_merged[index_dict[pull_request.merge_time.date()]] += 1
+
+        if feature_label in pull_request.labels:
+            pr_merged_feature[index_dict[pull_request.merge_time.date()]] += 1
+        if bugfix_label in pull_request.labels:
+            pr_merged_bugfix[index_dict[pull_request.merge_time.date()]] += 1
+        if maintenance_label in pull_request.labels:
+            pr_merged_maintenance[
+                index_dict[pull_request.merge_time.date()]
+            ] += 1
+        if enhancement_label in pull_request.labels:
+            pr_merged_enhancement[
+                index_dict[pull_request.merge_time.date()]
+            ] += 1
 
     weeks = days_array[::7]
-    issues_open_weekly = [
-        sum(
-            issues_open[j * 7 + i]
-            for i in range(7)
-            if j * 7 + i < len(issues_open)
-        )
-        for j in range(len(weeks))
-    ]
-    issues_closed_weekly = [
-        sum(
-            issues_closed[j * 7 + i]
-            for i in range(7)
-            if j * 7 + i < len(issues_closed)
-        )
-        for j in range(len(weeks))
-    ]
-    pr_open_weekly = [
-        sum(pr_open[j * 7 + i] for i in range(7) if j * 7 + i < len(pr_open))
-        for j in range(len(weeks))
-    ]
-    pr_closed_weekly = [
-        sum(
-            pr_closed[j * 7 + i]
-            for i in range(7)
-            if j * 7 + i < len(pr_closed)
-        )
-        for j in range(len(weeks))
-    ]
-    pr_merged_weekly = [
-        sum(
-            pr_merged[j * 7 + i]
-            for i in range(7)
-            if j * 7 + i < len(pr_merged)
-        )
-        for j in range(len(weeks))
-    ]
+    issues_open_weekly = aggregate_weekly_stats(issues_open, weeks)
+    issues_closed_weekly = aggregate_weekly_stats(issues_closed, weeks)
+    pr_open_weekly = aggregate_weekly_stats(pr_open, weeks)
+    pr_closed_weekly = aggregate_weekly_stats(pr_closed, weeks)
+    pr_merged_weekly = aggregate_weekly_stats(pr_merged, weeks)
+    pr_merged_feature_weekly = aggregate_weekly_stats(pr_merged_feature, weeks)
+    pr_merged_bugfix_weekly = aggregate_weekly_stats(pr_merged_bugfix, weeks)
+    pr_merged_maintenance_weekly = aggregate_weekly_stats(
+        pr_merged_maintenance, weeks
+    )
+    pr_merged_enhancement_weekly = aggregate_weekly_stats(
+        pr_merged_enhancement, weeks
+    )
 
     return {
         "days": [x.strftime("%Y-%m-%d") for x in days_array],
@@ -500,6 +514,10 @@ def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
         "pr_open_weekly": pr_open_weekly,
         "pr_closed_weekly": pr_closed_weekly,
         "pr_merged_weekly": pr_merged_weekly,
+        "pr_merged_feature_weekly": pr_merged_feature_weekly,
+        "pr_merged_bugfix_weekly": pr_merged_bugfix_weekly,
+        "pr_merged_maintenance_weekly": pr_merged_maintenance_weekly,
+        "pr_merged_enhancement_weekly": pr_merged_enhancement_weekly,
     }
 
 

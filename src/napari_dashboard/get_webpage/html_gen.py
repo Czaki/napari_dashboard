@@ -155,6 +155,49 @@ def generate_pull_request_plot2(stats: dict):
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
 
 
+def generate_pull_request_plot3(stats: dict, since: datetime.datetime):
+    last_week_count = -(datetime.datetime.now() - since).days // 7
+    plot = go.Figure()
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=stats["pr_issue_time_stats"]["pr_merged_feature_weekly"][
+                last_week_count:
+            ],
+            name="Merged features",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=stats["pr_issue_time_stats"]["pr_merged_enhancement_weekly"][
+                last_week_count:
+            ],
+            name="Merged enhancements",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=stats["pr_issue_time_stats"]["pr_merged_bugfix_weekly"][
+                last_week_count:
+            ],
+            name="Merged bugfix",
+        )
+    )
+    plot.add_trace(
+        go.Bar(
+            x=stats["pr_issue_time_stats"]["weeks"][last_week_count:],
+            y=stats["pr_issue_time_stats"]["pr_merged_maintenance_weekly"][
+                last_week_count:
+            ],
+            name="Merged maintenance",
+        )
+    )
+    plot.update_layout(legend=LEGEND_POS)
+    return plot.to_html(full_html=False, include_plotlyjs="cdn")
+
+
 def generate_stars_plot(stars: dict):
     plot = go.Figure()
     plot.add_trace(
@@ -225,7 +268,10 @@ def generate_download_map():
 
 
 def generate_webpage(
-    target_path: Path, db_path: Path, date: datetime.datetime
+    target_path: Path,
+    db_path: Path,
+    date: datetime.datetime,
+    dump_excel: bool = True,
 ) -> None:
     """
     Generate webpage from template
@@ -317,6 +363,7 @@ def generate_webpage(
         "issue_activity2": generate_issue_plot2(stats),
         "pr_activity_plot": generate_pull_request_plot(stats),
         "pr_activity_plot2": generate_pull_request_plot2(stats),
+        "pr_activity_plot3": generate_pull_request_plot3(stats, date),
         "stars_plot": generate_stars_plot(stars),
         "download_map": generate_download_map(),
     }
@@ -340,10 +387,11 @@ def generate_webpage(
     with open(target_path / "color-modes.js", "w") as f:
         f.write(color_mode_template.render(data))
 
-    print("Save data to excel")
+    if dump_excel:
+        print("Save data to excel")
 
-    with Session(engine) as session:
-        generate_excel_file(target_path / "napari_dashboard.xlsx", session)
+        with Session(engine) as session:
+            generate_excel_file(target_path / "napari_dashboard.xlsx", session)
 
     # Print the rendered HTML
 
