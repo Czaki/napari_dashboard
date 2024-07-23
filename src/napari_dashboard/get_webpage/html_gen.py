@@ -261,7 +261,6 @@ def generate_pull_request_plot4(stats: dict, since: datetime.datetime):
     plot.update_layout(
         # legend=LEGEND_POS,
         barmode="stack",
-        xaxis_title="merged PRs / week",
         yaxis_title="fraction of merged pull requests per week [%]",
     )
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
@@ -291,8 +290,7 @@ def generate_pull_request_plot5(stats: dict, since: datetime.datetime):
     )
     plot.update_layout(
         # legend=LEGEND_POS,
-        xaxis_title="merged PRs / week",
-        yaxis_title="fraction of merged pull requests<br>that are feature/enhancement per week [%]",
+        yaxis_title="fraction of merged pull requests<br>that are feature/enhancement per week [%]"
     )
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
 
