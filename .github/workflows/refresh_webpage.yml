@@ -47,3 +47,17 @@ jobs:
         publish_dir: ./webpage
         publish_branch: gh_pages
         exclude_assets: 'napari_dashboard.xlsx'
+
+    - name: Report Failures
+      if: ${{ failure() && github.event_name == 'schedule' }}
+      uses: JasonEtco/create-an-issue@v2
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PLATFORM: ${{ matrix.platform }}
+        PYTHON: ${{ matrix.python }}
+        BACKEND: ${{ matrix.backend }}
+        RUN_ID: ${{ github.run_id }}
+        TITLE: '[test-bot] pip install --pre is failing'
+      with:
+        filename: .github/TEST_FAIL_TEMPLATE.md
+        update_existing: true
