@@ -190,6 +190,7 @@ def _get_pr_attributes(pr: GHPullRequest, session: Session):
     return {
         "merge_time": pr.merged_at,
         "close_time": pr.closed_at,
+        "last_modification_time": pr.updated_at,
         "title": pr.title,
         "description": pr.body,
         "labels": [
@@ -242,7 +243,7 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             .all()
         )
         if len(pr_li) > 0:
-            if pr_li[0].close_time is not None:
+            if pr_li[0].last_modification_time == pr.updated_at:
                 continue
             pull = pr_li[0]
         else:
@@ -251,7 +252,6 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
                 repository_user=repo_model.user,
                 repository_name=repo_model.name,
                 open_time=pr.created_at,
-                last_modification_time=pr.created_at,
                 pull_request=pr.number,
             )
             session.add(pull)

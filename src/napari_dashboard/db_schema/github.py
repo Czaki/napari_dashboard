@@ -185,8 +185,16 @@ class PullRequestRelated(Base):
 class PullRequestInteraction(PullRequestRelated):
     __abstract__ = True
 
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            PrimaryKeyConstraint("id"),
+            *PullRequestRelated.__table_args__,
+            ForeignKeyConstraint(["user"], ["github_users.username"]),
+        )
+
     id: Mapped[int] = Column(Integer, primary_key=True)
-    user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
+    user: Mapped[str] = Column(String)
     date: Mapped[DateTime] = Column(DateTime)
 
 

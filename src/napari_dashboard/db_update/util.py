@@ -14,7 +14,7 @@ class JSONEncoder(json.JSONEncoder):
         return json.JSONEncoder.default(self, o)
 
 
-def setup_cache(timeout=3600):
+def setup_cache(timeout=3600 * 5):
     """
     setup cache for speedup execution and reduce number of requests to GitHub API
     by default cache will expire after 1h (3600s)
