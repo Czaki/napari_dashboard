@@ -1,0 +1,53 @@
+name: Weekly activity report
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'
+  push:
+    branches:
+      - main
+
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: 'write'
+      id-token: 'write'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: 3.11
+      - name: create service-secrets.json
+        run: |
+          echo "$SERVICE_SECRETS" > service-secrets.json
+        env:
+          SERVICE_SECRETS: ${{ secrets.SERVICE_SECRETS }}
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . -c requirements.txt
+
+      - name: Build the dashboard
+        run: |
+          result=$(python -m napari_dashboard.get_weekly_summary)
+          echo "command_output=$result" >> $GITHUB_ENV
+        env:
+          PEPY_KEY: ${{ secrets.PEPY_KEY }}
+          GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Send a stream message
+        uses: zulip/github-actions-zulip/send-message@v1
+        with:
+          api-key: ${{ secrets.ZULIP_API_KEY }}
+          email: "username@example.com"
+          organization-url: "https://napari.zulipchat.com"
+          to: "metrics and analytics"
+          type: "stream"
+          topic: "Weekly summary"
+          content: ${{ env.command_output }}

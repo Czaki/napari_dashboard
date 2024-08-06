@@ -129,7 +129,7 @@ def uncompressed_file(compressed_file_path, original_file_path):
         original_file.writelines(compressed_file)
 
 
-def main():
+def fetch_database():
     print("fetching database")
 
     db_file = get_db_file()
@@ -147,6 +147,9 @@ def main():
     else:
         print("Database not found")
 
+
+def main():
+    fetch_database()
     print("Updating database")
     db_update_main(["dashboard.db"])
     print("generating webpage")
