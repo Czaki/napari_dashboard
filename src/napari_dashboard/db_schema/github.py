@@ -3,13 +3,13 @@ from sqlalchemy import (
     Date,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     PrimaryKeyConstraint,
     String,
     Table,
-    UniqueConstraint,
 )
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, declared_attr, relationship
 
 from napari_dashboard.db_schema.base import Base
 
@@ -21,30 +21,29 @@ BOT_SET = {
 }
 
 
+def pull_request_relation():
+    return (
+        Column("pull_request_num", primary_key=True),
+        Column("repository_name", primary_key=True),
+        Column("repository_user", primary_key=True),
+        ForeignKeyConstraint(
+            ["pull_request_num", "repository_name", "repository_user"],
+            [
+                "github_pull_requests.pull_request",
+                "github_pull_requests.repository_name",
+                "github_pull_requests.repository_user",
+            ],
+        ),
+    )
+
+
 pr_to_coauthors_table = Table(
     "github_pr_to_coauthors_table",
     Base.metadata,
     Column(
         "github_users", ForeignKey("github_users.username"), primary_key=True
     ),
-    Column(
-        "github_pull_requests",
-        ForeignKey("github_pull_requests.id"),
-        primary_key=True,
-    ),
-)
-
-pr_to_reviewers_table = Table(
-    "github_pr_to_reviewers_table",
-    Base.metadata,
-    Column(
-        "github_users", ForeignKey("github_users.username"), primary_key=True
-    ),
-    Column(
-        "github_pull_requests",
-        ForeignKey("github_pull_requests.id"),
-        primary_key=True,
-    ),
+    *pull_request_relation(),
 )
 
 
@@ -57,32 +56,44 @@ class GithubUser(Base):
     pull_requests_coauthor: Mapped[list["PullRequests"]] = relationship(
         secondary=pr_to_coauthors_table, back_populates="coauthors"
     )
-    pull_requests_reviewer: Mapped[list["PullRequests"]] = relationship(
-        secondary=pr_to_reviewers_table, back_populates="reviewers"
-    )
 
 
 class Repository(Base):
     __tablename__ = "github_repositories"
-    __table_args__ = (UniqueConstraint("user", "name"),)
+    __table_args__ = (PrimaryKeyConstraint("user", "name"),)
 
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, autoincrement=True, nullable=False
-    )
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
     name: Mapped[str] = Column(String)
     stars: Mapped[list["Stars"]] = relationship(back_populates="gh_repository")
 
 
-class Stars(Base):
+class RepositoryRelated(Base):
+    __abstract__ = True
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            ForeignKeyConstraint(
+                ["repository_name", "repository_user"],
+                ["github_repositories.name", "github_repositories.user"],
+            ),
+        )
+
+    __repo_primary_key__ = ("repository_name", "repository_user")
+
+    repository_name: Mapped[str] = Column(String, primary_key=True)
+    repository_user: Mapped[str] = Column(String, primary_key=True)
+    # repository_name: Mapped[str] = Column(String, ForeignKey("github_repositories.name"), primary_key=True)
+    # repository_user: Mapped[str] = Column(String, ForeignKey("github_repositories.user"), primary_key=True)
+
+
+class Stars(RepositoryRelated):
     __tablename__ = "github_stars"
-    __table_args__ = (PrimaryKeyConstraint("user", "repository"),)
 
     datetime: Mapped[DateTime] = Column(DateTime)
     date: Mapped[Date] = Column(Date)
-    user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
-    repository: Mapped[int] = Column(
-        Integer, ForeignKey("github_repositories.id")
+    user: Mapped[str] = Column(
+        String, ForeignKey("github_users.username"), primary_key=True
     )
     gh_user: Mapped[GithubUser] = relationship(back_populates="stars")
     gh_repository: Mapped[Repository] = relationship(back_populates="stars")
@@ -94,20 +105,24 @@ pr_to_labels_table = Table(
     Column(
         "github_labels", ForeignKey("github_labels.label"), primary_key=True
     ),
-    Column(
-        "github_pull_requests",
-        ForeignKey("github_pull_requests.id"),
-        primary_key=True,
-    ),
+    *pull_request_relation(),
 )
 
 issues_to_labels_table = Table(
     "github_issues_to_labels_table",
     Base.metadata,
-    Column(
-        "github_labels", ForeignKey("github_labels.label"), primary_key=True
+    Column("label", ForeignKey("github_labels.label"), primary_key=True),
+    Column("issue_num", primary_key=True),
+    Column("repository_name", primary_key=True),
+    Column("repository_user", primary_key=True),
+    ForeignKeyConstraint(
+        ["issue_num", "repository_name", "repository_user"],
+        [
+            "github_issues.issue",
+            "github_issues.repository_name",
+            "github_issues.repository_user",
+        ],
     ),
-    Column("github_issues", ForeignKey("github_issues.id"), primary_key=True),
 )
 
 
@@ -123,21 +138,18 @@ class Labels(Base):
     )
 
 
-class PullRequests(Base):
+class PullRequests(RepositoryRelated):
     __tablename__ = "github_pull_requests"
-    __table_args__ = (UniqueConstraint("user", "repository", "pull_request"),)
+    # __table_args__ = (
+    #     *RepositoryRelated.__table_args_repo__,
+    # )
 
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, autoincrement=True, nullable=False
-    )
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
-    repository: Mapped[int] = Column(
-        Integer, ForeignKey("github_repositories.id")
-    )
-    pull_request: Mapped[int] = Column(Integer)
+    pull_request: Mapped[int] = Column(Integer, primary_key=True)
     open_time: Mapped[DateTime] = Column(DateTime)
     close_time: Mapped[DateTime] = Column(DateTime)
     merge_time: Mapped[DateTime] = Column(DateTime)
+    last_modification_time: Mapped[DateTime] = Column(DateTime)
     title: Mapped[str] = Column(String)
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
@@ -147,26 +159,67 @@ class PullRequests(Base):
         secondary=pr_to_coauthors_table,
         back_populates="pull_requests_coauthor",
     )
-    reviewers: Mapped[list["GithubUser"]] = relationship(
-        secondary=pr_to_reviewers_table,
-        back_populates="pull_requests_reviewer",
-    )
 
 
-class Issues(Base):
-    __tablename__ = "github_issues"
-    __table_args__ = (UniqueConstraint("user", "repository", "issue"),)
+class PullRequestRelated(Base):
+    __abstract__ = True
 
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, autoincrement=True, nullable=False
-    )
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            ForeignKeyConstraint(
+                ["repository_name", "repository_user", "pr_num"],
+                [
+                    "github_pull_requests.repository_name",
+                    "github_pull_requests.repository_user",
+                    "github_pull_requests.pull_request",
+                ],
+            ),
+        )
+
+    repository_name: Mapped[str] = Column(String)
+    repository_user: Mapped[str] = Column(String)
+    pr_num: Mapped[int] = Column(Integer)
+
+
+class PullRequestInteraction(PullRequestRelated):
+    __abstract__ = True
+
+    id: Mapped[int] = Column(Integer, primary_key=True)
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
-    repository: Mapped[int] = Column(
-        Integer, ForeignKey("github_repositories.id")
-    )
-    issue: Mapped[int] = Column(Integer)
+    date: Mapped[DateTime] = Column(DateTime)
+
+
+class PullRequestComments(PullRequestInteraction):
+    __tablename__ = "github_pr_comments"
+
+
+class PullRequestReviews(PullRequestInteraction):
+    __tablename__ = "github_pr_reviews"
+    state: Mapped[str] = Column(String)
+
+
+GithubUser.pull_requests_reviewer = relationship(
+    PullRequests, secondary="github_pr_reviews", back_populates="reviewers"
+)
+PullRequests.reviewers = relationship(
+    GithubUser,
+    secondary="github_pr_reviews",
+    back_populates="pull_requests_reviewer",
+)
+
+
+class Issues(RepositoryRelated):
+    __tablename__ = "github_issues"
+    # __table_args__ = (
+    #     *RepositoryRelated.__table_args_repo__,
+    # )
+
+    user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
+    issue: Mapped[int] = Column(Integer, primary_key=True)
     open_time: Mapped[DateTime] = Column(DateTime)
     close_time: Mapped[DateTime] = Column(DateTime)
+    last_modification_time: Mapped[DateTime] = Column(DateTime)
     title: Mapped[str] = Column(String)
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
@@ -174,27 +227,35 @@ class Issues(Base):
     )
 
 
-class Release(Base):
+class Release(RepositoryRelated):
     __tablename__ = "github_releases"
-    __table_args__ = (UniqueConstraint("repository", "release_tag"),)
+    # __table_args__ = (
+    #     *RepositoryRelated.__table_args_repo__,
+    # )
 
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, autoincrement=True, nullable=False
-    )
-    repository: Mapped[int] = Column(
-        Integer, ForeignKey("github_repositories.id")
-    )
-    release_tag: Mapped[str] = Column(String)
+    release_tag: Mapped[str] = Column(String, primary_key=True)
 
 
 class ArtifactDownloads(Base):
     __tablename__ = "github_artifact_downloads"
-    __table_args__ = (UniqueConstraint("release", "artifact_name"),)
+    # __table_args__ = (
+    #     PrimaryKeyConstraint("release_repository_name", "release_repository_user", "release_tag", "artifact_name"),
+    #     ForeignKeyConstraint(
+    #         ["release_repository_name", "release_repository_user", "release_tag"],
+    #         ["github_releases.repository_name", "github_releases.repository_user", "github_releases.release_tag"],
+    #     )
+    # )
 
-    id: Mapped[int] = Column(
-        Integer, primary_key=True, autoincrement=True, nullable=False
+    repository_name: Mapped[str] = Column(
+        String, ForeignKey("github_releases.repository_name"), primary_key=True
     )
-    release: Mapped[int] = Column(Integer, ForeignKey("github_releases.id"))
+    repository_user: Mapped[str] = Column(
+        String, ForeignKey("github_releases.repository_user"), primary_key=True
+    )
+    release_tag: Mapped[str] = Column(
+        String, ForeignKey("github_releases.release_tag"), primary_key=True
+    )
+
     download_count: Mapped[int] = Column(Integer)
     artifact_name: Mapped[str] = Column(String)
     platform: Mapped[str] = Column(String)

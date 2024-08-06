@@ -7,7 +7,6 @@ from github import (
     PullRequest as GHPullRequest,
     Repository as GHRepository,
 )
-from sqlalchemy.exc import NoResultFound
 from sqlalchemy.orm import Session
 from tqdm import tqdm
 
@@ -17,6 +16,8 @@ from napari_dashboard.db_schema.github import (
     GithubUser,
     Issues,
     Labels,
+    PullRequestComments,
+    PullRequestReviews,
     PullRequests,
     Release,
     Repository,
@@ -86,7 +87,12 @@ def save_stars(user: str, repo: str, session: Session) -> None:
     gh_repo, repo_model = get_repo_with_model(user, repo, session)
 
     count = (
-        session.query(Stars).filter(Stars.repository == repo_model.id).count()
+        session.query(Stars)
+        .filter(
+            Stars.repository_name == repo_model.name,
+            Stars.repository_user == repo_model.user,
+        )
+        .count()
     )
     if count == gh_repo.stargazers_count:
         logger.info(
@@ -110,27 +116,23 @@ def save_stars(user: str, repo: str, session: Session) -> None:
         stargazers, total=gh_repo.stargazers_count, desc=f"Stars {user}/{repo}"
     ):
         ensure_user(star.user.login, session)
-        if (
-            session.query(Stars)
-            .filter(
-                Stars.user == star.user.login,
-                Stars.repository == repo_model.id,
-            )
-            .count()
-            > 0
-        ):
-            continue
-        session.add(
+        session.merge(
             Stars(
                 user=star.user.login,
                 date=star.starred_at,
                 datetime=star.starred_at,
-                repository=repo_model.id,
+                repository_user=repo_model.user,
+                repository_name=repo_model.name,
             )
         )
     session.commit()
     count_2 = (
-        session.query(Stars).filter(Stars.repository == repo_model.id).count()
+        session.query(Stars)
+        .filter(
+            Stars.repository_name == repo_model.name,
+            Stars.repository_user == repo_model.user,
+        )
+        .count()
     )
     logger.info(
         "Saved %s stars for %s/%s",
@@ -215,7 +217,10 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
 
     count = (
         session.query(PullRequests)
-        .filter(PullRequests.repository == repo_model.id)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
         .count()
     )
 
@@ -230,7 +235,8 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             session.query(PullRequests)
             .filter(
                 PullRequests.user == pr.user.login,
-                PullRequests.repository == repo_model.id,
+                PullRequests.repository_user == repo_model.user,
+                PullRequests.repository_name == repo_model.name,
                 PullRequests.pull_request == pr.number,
             )
             .all()
@@ -238,23 +244,53 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         if len(pr_li) > 0:
             if pr_li[0].close_time is not None:
                 continue
-
-            for key, value in _get_pr_attributes(pr, session).items():
-                setattr(pr_li[0], key, value)
-            continue
-        session.add(
-            PullRequests(
+            pull = pr_li[0]
+        else:
+            pull = PullRequests(
                 user=pr.user.login,
-                repository=repo_model.id,
+                repository_user=repo_model.user,
+                repository_name=repo_model.name,
                 open_time=pr.created_at,
+                last_modification_time=pr.created_at,
                 pull_request=pr.number,
-                **_get_pr_attributes(pr, session),
             )
-        )
+            session.add(pull)
+
+        for key, value in _get_pr_attributes(pr, session).items():
+            setattr(pull, key, value)
+
+        for review in pr.get_reviews():
+            session.merge(
+                PullRequestReviews(
+                    id=review.id,
+                    user=review.user.login,
+                    date=review.submitted_at,
+                    state=review.state,
+                    pr_num=pr.number,
+                    repository_name=repo_model.name,
+                    repository_user=repo_model.user,
+                )
+            )
+
+        for comment in pr.get_comments():
+            session.merge(
+                PullRequestComments(
+                    id=comment.id,
+                    user=comment.user.login,
+                    date=comment.created_at,
+                    pr_num=pr.number,
+                    repository_name=repo_model.name,
+                    repository_user=repo_model.user,
+                )
+            )
+
     session.commit()
     count_2 = (
         session.query(PullRequests)
-        .filter(PullRequests.repository == repo_model.id)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
         .count()
     )
 
@@ -280,7 +316,10 @@ def save_issues(user: str, repo: str, session: Session) -> None:
 
     count = (
         session.query(Issues)
-        .filter(Issues.repository == repo_model.id)
+        .filter(
+            Issues.repository_user == repo_model.user,
+            Issues.repository_name == repo_model.name,
+        )
         .count()
     )
     issue_iter = gh_repo.get_issues(state="all")
@@ -289,30 +328,11 @@ def save_issues(user: str, repo: str, session: Session) -> None:
     ):
         ensure_user(issue.user.login, session)
         # check if issue is already saved
-        issue_li = (
-            session.query(Issues)
-            .filter(
-                Issues.user == issue.user.login,
-                Issues.repository == repo_model.id,
-                Issues.issue == issue.number,
-            )
-            .all()
-        )
-        if len(issue_li) > 0:
-            if issue_li[0].close_time is not None:
-                continue
-            issue_li[0].close_time = issue.closed_at
-            issue_li[0].description = issue.body
-            issue_li[0].title = issue.title
-            issue_li[0].labels = [
-                get_or_create(session, Labels, label=label.name)
-                for label in issue.get_labels()
-            ]
-            continue
-        session.add(
+        session.merge(
             Issues(
                 user=issue.user.login,
-                repository=repo_model.id,
+                repository_user=repo_model.user,
+                repository_name=repo_model.name,
                 issue=issue.number,
                 title=issue.title,
                 description=issue.body,
@@ -327,7 +347,10 @@ def save_issues(user: str, repo: str, session: Session) -> None:
     session.commit()
     count_2 = (
         session.query(Issues)
-        .filter(Issues.repository == repo_model.id)
+        .filter(
+            Issues.repository_user == repo_model.user,
+            Issues.repository_name == repo_model.name,
+        )
         .count()
     )
     logger.info("Saved %s issues for %s", count_2 - count, gh_repo.full_name)
@@ -352,31 +375,22 @@ def update_artifact_download(user: str, repo: str, session: Session):
             release_tag=release.tag_name,
         )
         for asset in release.get_assets():
-            try:
-                artifact = (
-                    session.query(ArtifactDownloads)
-                    .filter(
-                        ArtifactDownloads.release == release_model.id,
-                        ArtifactDownloads.artifact_name == asset.name,
-                    )
-                    .one()
+            if asset.name.endswith(".sh"):
+                platform = "Linux"
+            elif asset.name.endswith(".exe"):
+                platform = "Windows"
+            elif asset.name.endswith(".pkg"):
+                platform = "macOS"
+            else:
+                continue
+            session.merge(
+                ArtifactDownloads(
+                    release_tag=release_model.release_tag,
+                    repository_name=repo_model.name,
+                    repository_user=repo_model.user,
+                    artifact_name=asset.name,
+                    download_count=asset.download_count,
+                    platform=platform,
                 )
-                artifact.download_count = asset.download_count
-            except NoResultFound:
-                if asset.name.endswith(".sh"):
-                    platform = "Linux"
-                elif asset.name.endswith(".exe"):
-                    platform = "Windows"
-                elif asset.name.endswith(".pkg"):
-                    platform = "macOS"
-                else:
-                    continue
-                session.add(
-                    ArtifactDownloads(
-                        release=release_model.id,
-                        artifact_name=asset.name,
-                        download_count=asset.download_count,
-                        platform=platform,
-                    )
-                )
+            )
     session.commit()
