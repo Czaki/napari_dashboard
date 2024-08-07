@@ -130,7 +130,7 @@ def uncompressed_file(compressed_file_path, original_file_path):
 
 
 def fetch_database():
-    print("fetching database")
+    logging.info("fetching database")
 
     db_file = get_db_file()
     if db_file is not None:
@@ -139,13 +139,13 @@ def fetch_database():
             os.path.exists("dashboard.db.bz2")
             and calculate_md5("dashboard.db.bz2") == db_file["md5Checksum"]
         ):
-            print("download database")
+            logging.info("download database")
 
             db_file.GetContentFile("dashboard.db.bz2")
-            print("uncompressing database")
+            logging.info("uncompressing database")
             uncompressed_file("dashboard.db.bz2", "dashboard.db")
     else:
-        print("Database not found")
+        logging.info("Database not found")
 
 
 def main():

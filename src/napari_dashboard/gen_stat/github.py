@@ -549,3 +549,80 @@ def generate_basic_stats(
             user, repo, session
         ),
     }
+
+
+def get_last_week() -> tuple[datetime.datetime, datetime.datetime]:
+    """
+    Calcualte the last full week form Monday to Sunday
+
+    Returns
+    ------
+    tuple of two datetime.datetime
+        Tuple of upper and lower bound-
+    """
+    datetime.datetime.now().weekday()
+    today = datetime.datetime.now()
+    prev_monday = (
+        today - datetime.timedelta(days=today.weekday() + 7)
+    ).replace(hour=0, minute=0, second=0, microsecond=0)
+    last_sunday = prev_monday + datetime.timedelta(days=7, seconds=-1)
+    return prev_monday, last_sunday
+
+
+def pr_to_desc(pr: PullRequests) -> str:
+    closed_mark = "📖" if pr.close_time is None else "📕"
+    return f"{closed_mark} [{pr.repository_user}/{pr.repository_name}#{pr.pull_request}](https://github.com/{pr.repository_user}/{pr.repository_name}/pull/{pr.pull_request}) {pr.title} ({pr.user})"
+
+
+def get_last_week_new_pr(session: Session):
+    start, stop = get_last_week()
+    new_pr = (
+        session.query(PullRequests)
+        .filter(PullRequests.open_time > start, PullRequests.open_time < stop)
+        .all()
+    )
+
+    return [pr_to_desc(pr) for pr in new_pr]
+
+
+def get_updated_pr(session: Session):
+    start, stop = get_last_week()
+    new_pr = (
+        session.query(PullRequests)
+        .filter(
+            PullRequests.last_modification_time > start,
+            PullRequests.last_modification_time < stop,
+            PullRequests.close_time.is_(null()),
+        )
+        .all()
+    )
+
+    return [pr_to_desc(pr) for pr in new_pr]
+
+
+def get_last_week_merged_pr(session: Session):
+    start, stop = get_last_week()
+    new_pr = (
+        session.query(PullRequests)
+        .filter(
+            PullRequests.merge_time > start, PullRequests.merge_time < stop
+        )
+        .all()
+    )
+
+    return [pr_to_desc(pr) for pr in new_pr]
+
+
+def get_last_week_closed_pr(session: Session):
+    start, stop = get_last_week()
+    new_pr = (
+        session.query(PullRequests)
+        .filter(
+            PullRequests.close_time > start,
+            PullRequests.close_time < stop,
+            PullRequests.merge_time.is_(null()),
+        )
+        .all()
+    )
+
+    return [pr_to_desc(pr) for pr in new_pr]
