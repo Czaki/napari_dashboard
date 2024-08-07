@@ -36,9 +36,11 @@ jobs:
       - name: Build the dashboard
         run: |
           result=$(python -m napari_dashboard.get_weekly_summary)
-          echo "command_output=<<EOF >> "$GITHUB_ENV"
-          echo ${result}" >> "$GITHUB_ENV"
-          echo "EOF" >> "$GITHUB_ENV"
+          {
+            echo 'command_output<<EOF'
+            ${result}
+            echo EOF
+          } >> "$GITHUB_ENV"
         env:
           PEPY_KEY: ${{ secrets.PEPY_KEY }}
           GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}
