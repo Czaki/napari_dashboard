@@ -45,7 +45,7 @@ jobs:
         uses: zulip/github-actions-zulip/send-message@v1
         with:
           api-key: ${{ secrets.ZULIP_API_KEY }}
-          email: "username@example.com"
+          email: "dashboard-bot@napari.zulipchat.com"
           organization-url: "https://napari.zulipchat.com"
           to: "metrics and analytics"
           type: "stream"
