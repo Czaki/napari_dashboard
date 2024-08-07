@@ -218,28 +218,28 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         ensure_user(pr.user.login, session)
         # check if pull request is already saved and check if there is a need to update
         # merge status and labels
-        pr_li = (
+        pull = (
             session.query(PullRequests)
             .filter(
                 PullRequests.repository_user == repo_model.user,
                 PullRequests.repository_name == repo_model.name,
                 PullRequests.pull_request == pr.number,
             )
-            .all()
+            .first()
         )
-        if len(pr_li) > 0:
-            if pr_li[0].last_modification_time == pr.updated_at:
-                continue
-            pull = pr_li[0]
-        else:
+        if pull is None:
             pull = PullRequests(
                 user=pr.user.login,
                 repository_user=repo_model.user,
                 repository_name=repo_model.name,
                 open_time=pr.created_at,
+                last_modification_time=pr.updated_at,
                 pull_request=pr.number,
             )
             session.add(pull)
+
+        elif pull.last_modification_time == pr.updated_at:
+            continue
 
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
