@@ -14,6 +14,7 @@ def save_user_info(
     for user in user_data:
         if user["id"] in user_dict:
             continue
+
         user = get_or_create(
             session,
             ForumUser,

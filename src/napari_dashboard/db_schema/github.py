@@ -146,10 +146,10 @@ class PullRequests(RepositoryRelated):
 
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
     pull_request: Mapped[int] = Column(Integer, primary_key=True)
-    open_time: Mapped[DateTime] = Column(DateTime)
+    open_time: Mapped[DateTime] = Column(DateTime, nullable=False)
     close_time: Mapped[DateTime] = Column(DateTime)
     merge_time: Mapped[DateTime] = Column(DateTime)
-    last_modification_time: Mapped[DateTime] = Column(DateTime)
+    last_modification_time: Mapped[DateTime] = Column(DateTime, nullable=False)
     title: Mapped[str] = Column(String)
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
@@ -195,7 +195,7 @@ class PullRequestInteraction(PullRequestRelated):
 
     id: Mapped[int] = Column(Integer, primary_key=True)
     user: Mapped[str] = Column(String)
-    date: Mapped[DateTime] = Column(DateTime)
+    date: Mapped[DateTime] = Column(DateTime, nullable=False)
 
 
 class PullRequestComments(PullRequestInteraction):
@@ -207,32 +207,87 @@ class PullRequestReviews(PullRequestInteraction):
     state: Mapped[str] = Column(String)
 
 
-GithubUser.pull_requests_reviewer = relationship(
+GithubUser.pull_requests_reviews = relationship(
     PullRequests, secondary="github_pr_reviews", back_populates="reviewers"
 )
 PullRequests.reviewers = relationship(
     GithubUser,
     secondary="github_pr_reviews",
-    back_populates="pull_requests_reviewer",
+    back_populates="pull_requests_reviews",
+)
+
+GithubUser.pull_requests_comments = relationship(
+    PullRequests, secondary="github_pr_comments", back_populates="pr_comments"
+)
+PullRequests.pr_comments = relationship(
+    GithubUser,
+    secondary="github_pr_comments",
+    back_populates="pull_requests_comments",
 )
 
 
 class Issues(RepositoryRelated):
     __tablename__ = "github_issues"
-    # __table_args__ = (
-    #     *RepositoryRelated.__table_args_repo__,
-    # )
 
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
     issue: Mapped[int] = Column(Integer, primary_key=True)
-    open_time: Mapped[DateTime] = Column(DateTime)
+    open_time: Mapped[DateTime] = Column(DateTime, nullable=False)
     close_time: Mapped[DateTime] = Column(DateTime)
-    last_modification_time: Mapped[DateTime] = Column(DateTime)
+    last_modification_time: Mapped[DateTime] = Column(DateTime, nullable=False)
     title: Mapped[str] = Column(String)
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
         secondary=issues_to_labels_table, back_populates="issues"
     )
+
+
+class IssuesRelated(Base):
+    __abstract__ = True
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            ForeignKeyConstraint(
+                ["repository_name", "repository_user", "issue"],
+                [
+                    "github_issues.repository_name",
+                    "github_issues.repository_user",
+                    "github_issues.issue",
+                ],
+            ),
+        )
+
+    repository_name: Mapped[str] = Column(String)
+    repository_user: Mapped[str] = Column(String)
+    issue: Mapped[int] = Column(Integer)
+
+
+class IssueComment(IssuesRelated):
+    __tablename__ = "github_issue_comments"
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            PrimaryKeyConstraint("id"),
+            *IssuesRelated.__table_args__,
+            ForeignKeyConstraint(["user"], ["github_users.username"]),
+        )
+
+    user: Mapped[str] = Column(String)
+    date: Mapped[DateTime] = Column(DateTime, nullable=False)
+    id: Mapped[int] = Column(Integer, primary_key=True)
+
+
+GithubUser.issue_comments = relationship(
+    Issues,
+    secondary="github_issue_comments",
+    back_populates="issue_commenters",
+)
+Issues.issue_commenters = relationship(
+    GithubUser,
+    secondary="github_issue_comments",
+    back_populates="issue_comments",
+)
 
 
 class Release(RepositoryRelated):

@@ -14,6 +14,7 @@ from napari_dashboard.db_schema.github import (
     BOT_SET,
     ArtifactDownloads,
     GithubUser,
+    IssueComment,
     Issues,
     Labels,
     PullRequestComments,
@@ -172,20 +173,6 @@ def get_pull_request_coauthors(pr: GHPullRequest, session: Session):
     ]
 
 
-def get_pull_request_reviewers(pr: GHPullRequest, session: Session):
-    reviewers = set()
-    for review in pr.get_reviews():
-        if review.user is not None:
-            reviewers.add(review.user.login)
-    if pr.user.login in reviewers:
-        reviewers.remove(pr.user.login)
-
-    return [
-        get_or_create(session, GithubUser, username=reviewer)
-        for reviewer in reviewers
-    ]
-
-
 def _get_pr_attributes(pr: GHPullRequest, session: Session):
     return {
         "merge_time": pr.merged_at,
@@ -198,7 +185,6 @@ def _get_pr_attributes(pr: GHPullRequest, session: Session):
             for label in pr.get_labels()
         ],
         "coauthors": get_pull_request_coauthors(pr, session),
-        "reviewers": get_pull_request_reviewers(pr, session),
     }
 
 
@@ -235,7 +221,6 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         pr_li = (
             session.query(PullRequests)
             .filter(
-                PullRequests.user == pr.user.login,
                 PullRequests.repository_user == repo_model.user,
                 PullRequests.repository_name == repo_model.name,
                 PullRequests.pull_request == pr.number,
@@ -260,7 +245,10 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             setattr(pull, key, value)
 
         for review in pr.get_reviews():
-            session.merge(
+            if session.query(PullRequestReviews).get(review.id):
+                continue
+            ensure_user(review.user.login, session)
+            session.add(
                 PullRequestReviews(
                     id=review.id,
                     user=review.user.login,
@@ -273,6 +261,9 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
             )
 
         for comment in pr.get_comments():
+            if session.query(PullRequestComments).get(comment.id):
+                continue
+            ensure_user(comment.user.login, session)
             session.merge(
                 PullRequestComments(
                     id=comment.id,
@@ -326,24 +317,53 @@ def save_issues(user: str, repo: str, session: Session) -> None:
     for issue in tqdm(
         issue_iter, total=issue_iter.totalCount, desc=f"Issues {user}/{repo}"
     ):
-        ensure_user(issue.user.login, session)
-        # check if issue is already saved
-        session.merge(
-            Issues(
+        issue_ob = (
+            session.query(Issues)
+            .filter(
+                Issues.repository_user == repo_model.user,
+                Issues.repository_name == repo_model.name,
+                Issues.issue == issue.number,
+            )
+            .first()
+        )
+
+        if issue_ob is None:
+            ensure_user(issue.user.login, session)
+            issue_ob = Issues(
                 user=issue.user.login,
                 repository_user=repo_model.user,
                 repository_name=repo_model.name,
                 issue=issue.number,
-                title=issue.title,
-                description=issue.body,
-                labels=[
-                    get_or_create(session, Labels, label=label.name)
-                    for label in issue.get_labels()
-                ],
                 open_time=issue.created_at,
-                close_time=issue.closed_at,
             )
-        )
+            session.add(issue_ob)
+
+        elif issue_ob.last_modification_time == issue.updated_at:
+            continue
+
+        issue_ob.title = issue.title
+        issue_ob.description = issue.body
+        issue_ob.close_time = issue.closed_at
+        issue_ob.last_modification_time = issue.updated_at
+        issue_ob.labels = [
+            get_or_create(session, Labels, label=label.name)
+            for label in issue.get_labels()
+        ]
+
+        for comment in issue.get_comments():
+            if session.query(IssueComment).get(comment.id):
+                continue
+            ensure_user(comment.user.login, session)
+            session.merge(
+                IssueComment(
+                    id=comment.id,
+                    user=comment.user.login,
+                    date=comment.created_at,
+                    issue=issue.number,
+                    repository_name=repo_model.name,
+                    repository_user=repo_model.user,
+                )
+            )
     session.commit()
     count_2 = (
         session.query(Issues)
@@ -371,7 +391,8 @@ def update_artifact_download(user: str, repo: str, session: Session):
         release_model = get_or_create(
             session,
             Release,
-            repository=repo_model.id,
+            repository_name=repo_model.name,
+            repository_user=repo_model.user,
             release_tag=release.tag_name,
         )
         for asset in release.get_assets():

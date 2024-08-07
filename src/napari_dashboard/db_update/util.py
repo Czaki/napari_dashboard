@@ -32,6 +32,12 @@ def setup_cache(timeout=3600 * 5):
 
 
 def get_or_create(session, model, **kwargs):
+    if "id" in kwargs:
+        instance = session.query(model).get(kwargs["id"])
+        if instance:
+            for key, value in kwargs.items():
+                setattr(instance, key, value)
+            return instance
     instance = session.query(model).filter_by(**kwargs).first()
     if instance:
         return instance
