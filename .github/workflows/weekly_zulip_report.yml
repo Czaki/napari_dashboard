@@ -38,7 +38,7 @@ jobs:
           result=$(python -m napari_dashboard.get_weekly_summary)
           {
             echo 'command_output<<EOF'
-            ${result}
+            echo ${result}
             echo EOF
           } >> "$GITHUB_ENV"
         env:
