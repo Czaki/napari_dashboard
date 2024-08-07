@@ -233,18 +233,20 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
                 repository_user=repo_model.user,
                 repository_name=repo_model.name,
                 open_time=pr.created_at,
-                last_modification_time=pr.updated_at,
+                last_modification_time=pr.updated_at.replace(tzinfo=None),
                 pull_request=pr.number,
             )
             session.add(pull)
 
-        elif pull.last_modification_time == pr.updated_at:
+        elif pull.last_modification_time == pr.updated_at.replace(tzinfo=None):
             continue
 
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
 
         for review in pr.get_reviews():
+            if review.state == "PENDING":
+                continue
             if session.query(PullRequestReviews).get(review.id):
                 continue
             ensure_user(review.user.login, session)
@@ -338,13 +340,15 @@ def save_issues(user: str, repo: str, session: Session) -> None:
             )
             session.add(issue_ob)
 
-        elif issue_ob.last_modification_time == issue.updated_at:
+        elif issue_ob.last_modification_time == issue.updated_at.replace(
+            tzinfo=None
+        ):
             continue
 
         issue_ob.title = issue.title
         issue_ob.description = issue.body
         issue_ob.close_time = issue.closed_at
-        issue_ob.last_modification_time = issue.updated_at
+        issue_ob.last_modification_time = issue.updated_at.replace(tzinfo=None)
         issue_ob.labels = [
             get_or_create(session, Labels, label=label.name)
             for label in issue.get_labels()
