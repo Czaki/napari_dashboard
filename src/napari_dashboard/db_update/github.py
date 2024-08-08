@@ -18,6 +18,7 @@ from napari_dashboard.db_schema.github import (
     Issues,
     Labels,
     PullRequestComments,
+    PullRequestCommits,
     PullRequestReviews,
     PullRequests,
     Release,
@@ -184,7 +185,7 @@ def _get_pr_attributes(pr: GHPullRequest, session: Session):
             get_or_create(session, Labels, label=label.name)
             for label in pr.get_labels()
         ],
-        "coauthors": get_pull_request_coauthors(pr, session),
+        # "coauthors": get_pull_request_coauthors(pr, session),
     }
 
 
@@ -243,6 +244,24 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
 
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
+
+        for commit in pr.get_commits():
+            if session.query(PullRequestCommits).get(commit.sha):
+                continue
+            user_login = (
+                commit.author.login if commit.author else pr.user.login
+            )
+            ensure_user(user_login, session)
+            session.merge(
+                PullRequestCommits(
+                    sha=commit.sha,
+                    user=user_login,
+                    date=commit.last_modified_datetime,
+                    pr_num=pr.number,
+                    repository_name=repo_model.name,
+                    repository_user=repo_model.user,
+                )
+            )
 
         for review in pr.get_reviews():
             if review.state == "PENDING":

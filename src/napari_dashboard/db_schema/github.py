@@ -37,25 +37,12 @@ def pull_request_relation():
     )
 
 
-pr_to_coauthors_table = Table(
-    "github_pr_to_coauthors_table",
-    Base.metadata,
-    Column(
-        "github_users", ForeignKey("github_users.username"), primary_key=True
-    ),
-    *pull_request_relation(),
-)
-
-
 class GithubUser(Base):
     __tablename__ = "github_users"
     __table_args__ = (PrimaryKeyConstraint("username"),)
 
     username: Mapped[str] = Column(String)
     stars: Mapped[list["Stars"]] = relationship(back_populates="gh_user")
-    pull_requests_coauthor: Mapped[list["PullRequests"]] = relationship(
-        secondary=pr_to_coauthors_table, back_populates="coauthors"
-    )
 
 
 class Repository(Base):
@@ -83,8 +70,6 @@ class RepositoryRelated(Base):
 
     repository_name: Mapped[str] = Column(String, primary_key=True)
     repository_user: Mapped[str] = Column(String, primary_key=True)
-    # repository_name: Mapped[str] = Column(String, ForeignKey("github_repositories.name"), primary_key=True)
-    # repository_user: Mapped[str] = Column(String, ForeignKey("github_repositories.user"), primary_key=True)
 
 
 class Stars(RepositoryRelated):
@@ -140,9 +125,6 @@ class Labels(Base):
 
 class PullRequests(RepositoryRelated):
     __tablename__ = "github_pull_requests"
-    # __table_args__ = (
-    #     *RepositoryRelated.__table_args_repo__,
-    # )
 
     user: Mapped[str] = Column(String, ForeignKey("github_users.username"))
     pull_request: Mapped[int] = Column(Integer, primary_key=True)
@@ -154,10 +136,6 @@ class PullRequests(RepositoryRelated):
     description: Mapped[str] = Column(String)
     labels: Mapped[list["Labels"]] = relationship(
         secondary=pr_to_labels_table, back_populates="pull_requests"
-    )
-    coauthors: Mapped[list["GithubUser"]] = relationship(
-        secondary=pr_to_coauthors_table,
-        back_populates="pull_requests_coauthor",
     )
 
 
@@ -180,6 +158,30 @@ class PullRequestRelated(Base):
     repository_name: Mapped[str] = Column(String)
     repository_user: Mapped[str] = Column(String)
     pr_num: Mapped[int] = Column(Integer)
+
+
+class PullRequestCommits(PullRequestRelated):
+    __tablename__ = "github_pr_commits"
+
+    @declared_attr
+    def __table_args__(cls):
+        return (
+            PrimaryKeyConstraint("sha"),
+            *PullRequestRelated.__table_args__,
+            ForeignKeyConstraint(["user"], ["github_users.username"]),
+        )
+
+    sha: Mapped[str] = Column(String)
+    user: Mapped[str] = Column(String)
+    date: Mapped[DateTime] = Column(DateTime, nullable=False)
+
+
+GithubUser.commits = relationship(
+    PullRequests, secondary="github_pr_commits", back_populates="commits"
+)
+PullRequests.commits = relationship(
+    GithubUser, secondary="github_pr_commits", back_populates="commits"
+)
 
 
 class PullRequestInteraction(PullRequestRelated):
