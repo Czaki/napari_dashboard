@@ -35,12 +35,7 @@ jobs:
 
       - name: Build the dashboard
         run: |
-          result=$(python -m napari_dashboard.get_weekly_summary)
-          {
-            echo 'command_output<<EOF'
-            echo ${result}
-            echo EOF
-          } >> "$GITHUB_ENV"
+          python -m napari_dashboard.get_weekly_summary --send_zulip
         env:
           PEPY_KEY: ${{ secrets.PEPY_KEY }}
           GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}

@@ -14,12 +14,13 @@ from napari_dashboard.gen_stat.github import (
     get_last_week_new_pr,
     get_updated_pr,
 )
+from napari_dashboard.get_webpage.gdrive import fetch_database
 
 
 def generate_weekly_summary() -> list[str]:
     start, end = get_last_week()
     logging.basicConfig(level=logging.INFO)
-    # fetch_database()
+    fetch_database()
     engine = create_engine("sqlite:///dashboard.db")
     res = [f"# Weekly Summary {start.date()}-{end.date()}\n"]
     with Session(engine) as session:
