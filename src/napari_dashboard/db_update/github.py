@@ -338,6 +338,8 @@ def save_issues(user: str, repo: str, session: Session) -> None:
     for issue in tqdm(
         issue_iter, total=issue_iter.totalCount, desc=f"Issues {user}/{repo}"
     ):
+        if issue.pull_request is not None:
+            continue
         issue_ob = (
             session.query(Issues)
             .filter(

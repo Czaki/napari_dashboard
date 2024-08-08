@@ -69,4 +69,4 @@ jobs:
         to: "metrics and analytics"
         type: "stream"
         topic: "Deploy dashboard"
-        content: "Dashboard deployed failed"
+        content: "Dashboard deployment failed"

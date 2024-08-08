@@ -37,6 +37,7 @@ dependencies = [
     "PyDrive2",
     "XlsxWriter",
     "pycountry",
+    "zulip",
 ]
 
 [project.urls]

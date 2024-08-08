@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import itertools
+from functools import lru_cache
 from typing import TYPE_CHECKING, Callable
 
 from sqlalchemy import desc, func, null
@@ -593,6 +594,7 @@ def generate_basic_stats(
     }
 
 
+@lru_cache
 def get_last_week() -> tuple[datetime.datetime, datetime.datetime]:
     """
     Calcualte the last full week form Monday to Sunday
@@ -612,16 +614,18 @@ def get_last_week() -> tuple[datetime.datetime, datetime.datetime]:
 
 
 def pr_to_desc(pr: PullRequests) -> str:
+    end_day = get_last_week()[1]
     book_mark = "📖"
-    if pr.close_time is not None:
+    if pr.close_time is not None and pr.close_time < end_day:
         book_mark = "📗" if pr.merge_time is not None else "📕"
 
     return f"{book_mark} [{pr.repository_user}/{pr.repository_name}#{pr.pull_request}](https://github.com/{pr.repository_user}/{pr.repository_name}/pull/{pr.pull_request}) {pr.title} ({pr.user})"
 
 
 def issue_to_desc(issue: Issues) -> str:
+    end_day = get_last_week()[1]
     book_mark = "📖"
-    if issue.close_time is not None:
+    if issue.close_time is not None and issue.close_time < end_day:
         book_mark = "📗"
     return f"{book_mark} [{issue.repository_user}/{issue.repository_name}#{issue.issue}](https://github.com/{issue.repository_user}/{issue.repository_name}/issues/{issue.issue}) {issue.title} ({issue.user})"
 
