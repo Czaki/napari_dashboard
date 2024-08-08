@@ -303,23 +303,26 @@ class Release(RepositoryRelated):
 
 class ArtifactDownloads(Base):
     __tablename__ = "github_artifact_downloads"
-    # __table_args__ = (
-    #     PrimaryKeyConstraint("release_repository_name", "release_repository_user", "release_tag", "artifact_name"),
-    #     ForeignKeyConstraint(
-    #         ["release_repository_name", "release_repository_user", "release_tag"],
-    #         ["github_releases.repository_name", "github_releases.repository_user", "github_releases.release_tag"],
-    #     )
-    # )
+    __table_args__ = (
+        PrimaryKeyConstraint(
+            "repository_name",
+            "repository_user",
+            "release_tag",
+            "artifact_name",
+        ),
+        ForeignKeyConstraint(
+            ["repository_name", "repository_user", "release_tag"],
+            [
+                "github_releases.repository_name",
+                "github_releases.repository_user",
+                "github_releases.release_tag",
+            ],
+        ),
+    )
 
-    repository_name: Mapped[str] = Column(
-        String, ForeignKey("github_releases.repository_name"), primary_key=True
-    )
-    repository_user: Mapped[str] = Column(
-        String, ForeignKey("github_releases.repository_user"), primary_key=True
-    )
-    release_tag: Mapped[str] = Column(
-        String, ForeignKey("github_releases.release_tag"), primary_key=True
-    )
+    repository_name: Mapped[str] = Column(String)
+    repository_user: Mapped[str] = Column(String)
+    release_tag: Mapped[str] = Column(String)
 
     download_count: Mapped[int] = Column(Integer)
     artifact_name: Mapped[str] = Column(String)

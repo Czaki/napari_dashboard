@@ -85,7 +85,10 @@ def calc_stars_per_day_cumulative(
     res = {"day": [], "stars": []}
     for el in (
         session.query(Stars.date, func.count(Stars.date))
-        .filter(Stars.repository == repo_model.id)
+        .filter(
+            Stars.repository_user == repo_model.user,
+            Stars.repository_name == repo_model.name,
+        )
         .group_by(Stars.date)
         .order_by(Stars.date)
         .all()
@@ -106,7 +109,10 @@ def get_pull_request_creators(
     repo_model = get_repo_model(user, repo, session)
     basic_querry = session.query(
         PullRequests.user, func.count(PullRequests.pull_request).label("count")
-    ).filter(PullRequests.repository == repo_model.id)
+    ).filter(
+        PullRequests.repository_name == repo_model.name,
+        PullRequests.repository_user == repo_model.user,
+    )
 
     if since is not None:
         basic_querry = basic_querry.filter(PullRequests.open_time > since)
@@ -135,8 +141,11 @@ def get_pull_request_reviewers(
             GithubUser.username,
             func.count(PullRequests.pull_request).label("count"),
         )
-        .join(PullRequests, GithubUser.pull_requests_reviewer)
-        .filter(PullRequests.repository == repo_model.id)
+        .join(PullRequests, GithubUser.pull_requests_reviews)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
     )
 
     if since is not None:
@@ -166,8 +175,11 @@ def get_pull_request_coauthors(
             GithubUser.username,
             func.count(PullRequests.pull_request).label("count"),
         )
-        .join(PullRequests, GithubUser.pull_requests_coauthor)
-        .filter(PullRequests.repository == repo_model.id)
+        .join(PullRequests, GithubUser.commits)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
     )
 
     if since is not None:
@@ -192,7 +204,8 @@ def get_recent_contributors(
         x[0]
         for x in session.query(PullRequests.user)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time > since,
         )
         .group_by(PullRequests.user)
@@ -209,7 +222,8 @@ def count_recent_pull_requests(
     return (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time > since,
         )
         .count()
@@ -223,7 +237,11 @@ def count_recent_closed_issues(
     repo_model = get_repo_model(user, repo, session)
     return (
         session.query(Issues)
-        .filter(Issues.repository == repo_model.id, Issues.close_time > since)
+        .filter(
+            Issues.repository_user == repo_model.user,
+            Issues.repository_name == repo_model.name,
+            Issues.close_time > since,
+        )
         .count()
     )
 
@@ -235,7 +253,11 @@ def count_recent_opened_issues(
     repo_model = get_repo_model(user, repo, session)
     return (
         session.query(Issues)
-        .filter(Issues.repository == repo_model.id, Issues.open_time > since)
+        .filter(
+            Issues.repository_user == repo_model.user,
+            Issues.repository_name == repo_model.name,
+            Issues.open_time > since,
+        )
         .count()
     )
 
@@ -250,9 +272,10 @@ def count_recent_pull_requests_by_label(
     # get information how many pull requests have a specific label
     repo_model = get_repo_model(user, repo, session)
     resp = dict(
-        session.query(Labels.label, func.count(PullRequests.id))
+        session.query(Labels.label, func.count(PullRequests.pull_request))
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time > since,
         )
         .join(PullRequests.labels)
@@ -269,13 +292,17 @@ def generate_pr_stats(
     repo_model = get_repo_model(user, repo, session)
     total_pull_requests = (
         session.query(PullRequests)
-        .filter(PullRequests.repository == repo_model.id)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
         .count()
     )
     merged_pull_requests = (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time.isnot(null()),
         )
         .count()
@@ -283,7 +310,8 @@ def generate_pr_stats(
     open_pull_requests = (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time.is_(null()),
             PullRequests.close_time.is_(null()),
         )
@@ -292,7 +320,8 @@ def generate_pr_stats(
     new_merged_pull_requests = (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.merge_time > since,
             PullRequests.merge_time.isnot(null()),
         )
@@ -301,7 +330,8 @@ def generate_pr_stats(
     new_opened_pull_requests = (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.open_time > since,
             PullRequests.merge_time.is_(null()),
         )
@@ -310,7 +340,8 @@ def generate_pr_stats(
     pr_closed_without_merge = (
         session.query(PullRequests)
         .filter(
-            PullRequests.repository == repo_model.id,
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
             PullRequests.close_time.is_not(null()),
             PullRequests.merge_time.is_(null()),
         )
@@ -336,8 +367,11 @@ def bundle_downloads_count(user: str, repo: str, session: Session):
             ArtifactDownloads.platform,
             func.sum(ArtifactDownloads.download_count),
         )
-        .join(Release, Release.id == ArtifactDownloads.release)
-        .filter(Release.repository == repo_model.id)
+        .join(Release)
+        .filter(
+            Release.repository_name == repo_model.name,
+            Release.repository_user == repo_model.user,
+        )
         .group_by(ArtifactDownloads.platform)
         .all()
     )
@@ -450,7 +484,12 @@ def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
     )
 
     for issue in (
-        session.query(Issues).filter(Issues.repository == repo_model.id).all()
+        session.query(Issues)
+        .filter(
+            Issues.repository_user == repo_model.user,
+            Issues.repository_name == repo_model.name,
+        )
+        .all()
     ):
         issues_open[index_dict[issue.open_time.date()]] += 1
         if issue.close_time is not None:
@@ -458,7 +497,10 @@ def generate_pr_and_issue_time_stats(user: str, repo: str, session: Session):
 
     for pull_request in (
         session.query(PullRequests)
-        .filter(PullRequests.repository == repo_model.id)
+        .filter(
+            PullRequests.repository_user == repo_model.user,
+            PullRequests.repository_name == repo_model.name,
+        )
         .all()
     ):
         pr_open[index_dict[pull_request.open_time.date()]] += 1

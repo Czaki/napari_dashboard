@@ -115,7 +115,7 @@ def _save_pepy_download_stat(session: Session, package: str):
                     downloads=count,
                 )
             )
-            # session.commit()
+    session.commit()
 
 
 def save_pepy_download_stat(session: Session):
