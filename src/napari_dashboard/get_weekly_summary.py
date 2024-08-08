@@ -78,8 +78,8 @@ def main():
                     "content": content,
                 }
             )
-    else:
-        print("\n".join(message))
+
+    print("\n".join(message))
 
 
 if __name__ == "__main__":
