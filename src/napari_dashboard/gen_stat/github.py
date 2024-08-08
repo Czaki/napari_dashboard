@@ -570,8 +570,18 @@ def get_last_week() -> tuple[datetime.datetime, datetime.datetime]:
 
 
 def pr_to_desc(pr: PullRequests) -> str:
-    closed_mark = "📖" if pr.close_time is None else "📕"
-    return f"{closed_mark} [{pr.repository_user}/{pr.repository_name}#{pr.pull_request}](https://github.com/{pr.repository_user}/{pr.repository_name}/pull/{pr.pull_request}) {pr.title} ({pr.user})"
+    book_mark = "📖"
+    if pr.close_time is not None:
+        book_mark = "📗" if pr.merge_time is not None else "📕"
+
+    return f"{book_mark} [{pr.repository_user}/{pr.repository_name}#{pr.pull_request}](https://github.com/{pr.repository_user}/{pr.repository_name}/pull/{pr.pull_request}) {pr.title} ({pr.user})"
+
+
+def issue_to_desc(issue: Issues) -> str:
+    book_mark = "📖"
+    if issue.close_time is not None:
+        book_mark = "📗"
+    return f"{book_mark} [{issue.repository_user}/{issue.repository_name}#{issue.issue}](https://github.com/{issue.repository_user}/{issue.repository_name}/issues/{issue.issue}) {issue.title} ({issue.user})"
 
 
 def get_last_week_new_pr(session: Session):
@@ -626,3 +636,25 @@ def get_last_week_closed_pr(session: Session):
     )
 
     return [pr_to_desc(pr) for pr in new_pr]
+
+
+def get_last_week_new_issues(session: Session):
+    start, stop = get_last_week()
+    new_issues = (
+        session.query(Issues)
+        .filter(Issues.open_time > start, Issues.open_time < stop)
+        .all()
+    )
+
+    return [issue_to_desc(issue) for issue in new_issues]
+
+
+def get_last_week_closed_issues(session: Session):
+    start, stop = get_last_week()
+    new_issues = (
+        session.query(Issues)
+        .filter(Issues.close_time > start, Issues.close_time < stop)
+        .all()
+    )
+
+    return [issue_to_desc(issue) for issue in new_issues]

@@ -5,8 +5,10 @@ from sqlalchemy.orm import Session
 
 from napari_dashboard.gen_stat.github import (
     get_last_week,
+    get_last_week_closed_issues,
     get_last_week_closed_pr,
     get_last_week_merged_pr,
+    get_last_week_new_issues,
     get_last_week_new_pr,
     get_updated_pr,
 )
@@ -35,6 +37,14 @@ def main():
 
         print("\n## Closed Pull Requests (not merged)\n")
         for text in get_last_week_closed_pr(session):
+            print(f" - {text}")
+
+        print("\n## New Issues\n")
+        for text in get_last_week_new_issues(session):
+            print(f" - {text}")
+
+        print("\n## Closed Issues\n")
+        for text in get_last_week_closed_issues(session):
             print(f" - {text}")
 
 
