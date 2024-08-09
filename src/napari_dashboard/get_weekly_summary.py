@@ -12,7 +12,8 @@ from napari_dashboard.gen_stat.github import (
     get_last_week_merged_pr,
     get_last_week_new_issues,
     get_last_week_new_pr,
-    get_updated_pr,
+    get_last_week_updated_issues,
+    get_last_week_updated_pr,
 )
 from napari_dashboard.get_webpage.gdrive import fetch_database
 
@@ -27,13 +28,17 @@ def generate_weekly_summary() -> list[str]:
         res.append("## New Pull Requests\n")
         res.extend(f" - {text}" for text in get_last_week_new_pr(session))
         res.append("\n## Updated Pull Requests (state unchanged)\n")
-        res.extend(f" - {text}" for text in get_updated_pr(session))
+        res.extend(f" - {text}" for text in get_last_week_updated_pr(session))
         res.append("\n## Merged Pull Requests\n")
         res.extend(f" - {text}" for text in get_last_week_merged_pr(session))
         res.append("\n## Closed Pull Requests (not merged)\n")
         res.extend(f" - {text}" for text in get_last_week_closed_pr(session))
         res.append("\n## New Issues\n")
         res.extend(f" - {text}" for text in get_last_week_new_issues(session))
+        res.append("\n## Updated Issues\n")
+        res.extend(
+            f" - {text}" for text in get_last_week_updated_issues(session)
+        )
         res.append("\n## Closed Issues\n")
         res.extend(
             f" - {text}" for text in get_last_week_closed_issues(session)

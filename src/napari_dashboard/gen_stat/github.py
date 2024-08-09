@@ -5,14 +5,18 @@ import itertools
 from functools import lru_cache
 from typing import TYPE_CHECKING, Callable
 
-from sqlalchemy import desc, func, null
+from sqlalchemy import and_, desc, func, null, or_
 
 from napari_dashboard.db_schema.github import (
     BOT_SET,
     ArtifactDownloads,
     GithubUser,
+    IssueComment,
     Issues,
     Labels,
+    PullRequestComments,
+    PullRequestCommits,
+    PullRequestReviews,
     PullRequests,
     Release,
     Repository,
@@ -641,19 +645,51 @@ def get_last_week_new_pr(session: Session):
     return [pr_to_desc(pr) for pr in new_pr]
 
 
-def get_updated_pr(session: Session):
+def get_last_week_updated_pr(session: Session):
     start, stop = get_last_week()
-    new_pr = (
+    base_querry = (
         session.query(PullRequests)
         .filter(
-            PullRequests.last_modification_time > start,
-            PullRequests.last_modification_time < stop,
-            PullRequests.close_time.is_(null()),
+            PullRequests.open_time < start, PullRequests.close_time.is_(null())
+        )
+        .outerjoin(PullRequestReviews)
+        .outerjoin(PullRequestComments)
+        .outerjoin(PullRequestCommits)
+        .filter(
+            or_(
+                and_(
+                    PullRequestReviews.date >= start,
+                    PullRequestReviews.date <= stop,
+                ),
+                and_(
+                    PullRequestComments.date >= start,
+                    PullRequestComments.date <= stop,
+                ),
+                and_(
+                    PullRequestCommits.date >= start,
+                    PullRequestCommits.date <= stop,
+                ),
+            )
         )
         .all()
     )
+    # query_with_reviews = (
+    #     base_querry.outerjoin(PullRequestReviews).filter(
+    #         PullRequestReviews.date > start, PullRequestReviews.date < stop
+    #     ).all()
+    # )
+    # query_with_comments = (
+    #     base_querry.outerjoin(PullRequestComments).filter(
+    #         PullRequestComments.date > start, PullRequestComments.date < stop
+    #     ).all()
+    # )
+    # query_with_commits = (
+    #     base_querry.outerjoin(PullRequestCommits).filter(
+    #         PullRequestCommits.date > start, PullRequestCommits.date < stop
+    #     ).all()
+    # )
 
-    return [pr_to_desc(pr) for pr in new_pr]
+    return [pr_to_desc(pr) for pr in base_querry]
 
 
 def get_last_week_merged_pr(session: Session):
@@ -661,7 +697,9 @@ def get_last_week_merged_pr(session: Session):
     new_pr = (
         session.query(PullRequests)
         .filter(
-            PullRequests.merge_time > start, PullRequests.merge_time < stop
+            PullRequests.merge_time > start,
+            PullRequests.merge_time < stop,
+            PullRequests.open_time < start,
         )
         .all()
     )
@@ -676,6 +714,7 @@ def get_last_week_closed_pr(session: Session):
         .filter(
             PullRequests.close_time > start,
             PullRequests.close_time < stop,
+            PullRequests.open_time < start,
             PullRequests.merge_time.is_(null()),
         )
         .all()
@@ -695,11 +734,28 @@ def get_last_week_new_issues(session: Session):
     return [issue_to_desc(issue) for issue in new_issues]
 
 
+def get_last_week_updated_issues(session: Session):
+    start, stop = get_last_week()
+    new_issues = (
+        session.query(Issues)
+        .filter(Issues.open_time < start, Issues.close_time.is_(null()))
+        .join(IssueComment)
+        .filter(IssueComment.date > start, IssueComment.date < stop)
+        .all()
+    )
+
+    return [issue_to_desc(issue) for issue in new_issues]
+
+
 def get_last_week_closed_issues(session: Session):
     start, stop = get_last_week()
     new_issues = (
         session.query(Issues)
-        .filter(Issues.close_time > start, Issues.close_time < stop)
+        .filter(
+            Issues.close_time > start,
+            Issues.close_time < stop,
+            Issues.open_time < start,
+        )
         .all()
     )
 
