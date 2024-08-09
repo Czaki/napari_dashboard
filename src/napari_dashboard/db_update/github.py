@@ -245,7 +245,12 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
 
-        for commit in pr.get_commits():
+        commits = list(pr.get_commits())
+        dates = {x.raw_data["commit"]["author"]["date"] for x in commits}
+        assert len(commits) == 1 or len(dates) > 1
+        # workaround for bug in pygithub that wronly set last modified time
+
+        for commit in commits:
             if session.query(PullRequestCommits).get(commit.sha):
                 continue
             user_login = (
