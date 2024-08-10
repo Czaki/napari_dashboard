@@ -1,10 +1,10 @@
-import logging
-import os
-import requests
 import datetime
+import logging
 import math
+import os
 import time
 
+import requests
 from github import (
     Auth,
     Github,
@@ -49,16 +49,21 @@ def get_commits(pr: GHPullRequest):
     i = 1
     while i < int(math.ceil(pr.commits / 100)) + 1:
         resp = requests.get(
-                f"{pr.commits_url}?page={i}&per_page=100",
-                headers=PR_COMMITS_HEADER,
-            )
+            f"{pr.commits_url}?page={i}&per_page=100",
+            headers=PR_COMMITS_HEADER,
+        )
         if resp.status_code == 200:
             commits_json.extend(resp.json())
-            i+=1
+            i += 1
         if resp.status_code in {403, 429}:
-            sleep_time = int(resp.headers.get("x-ratelimit-reset")) - time.time()
-            logger.warning("Rate limit exceeded. Sleeping for %s seconds", sleep_time)
-            time.sleep(sleep_time)
+            sleep_time = (
+                int(resp.headers.get("x-ratelimit-reset")) - time.time()
+            )
+            if sleep_time > 0:
+                logger.warning(
+                    "Rate limit exceeded. Sleeping for %s seconds", sleep_time
+                )
+                time.sleep(sleep_time)
     return commits_json
 
 
@@ -273,26 +278,23 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
 
-        commits_json = []
-        while len(commits_json) < pr.commits:
-            commits_json.extend(
-                requests.get(
-                    f"{pr.commits_url}?page={len(commits_json) + 1}&per_page=100",
-                    headers=PR_COMMITS_HEADER,
-                ).json()
-            )        # workaround for bug in pygithub that wronly set last modified time
+        commits_json = get_commits(pr)
 
         for commit in commits_json:
             # if session.query(PullRequestCommits).get(commit.sha):
             #     continue
             user_login = (
-                commit['author']['login'] if commit['author'] else pr.user.login
+                commit["author"]["login"]
+                if commit["author"]
+                else pr.user.login
             )
-            date = datetime.datetime.fromisoformat(commit['commit']['author']['date']).replace(tzinfo=None)
+            date = datetime.datetime.fromisoformat(
+                commit["commit"]["author"]["date"]
+            ).replace(tzinfo=None)
             ensure_user(user_login, session)
             session.merge(
                 PullRequestCommits(
-                    sha=commit['sha'],
+                    sha=commit["sha"],
                     user=user_login,
                     date=date,
                     pr_num=pr.number,
