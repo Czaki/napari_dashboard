@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from napari_dashboard.gen_stat.github import (
     get_last_week,
+    get_last_week_active_core_devs,
     get_last_week_closed_issues,
     get_last_week_closed_pr,
     get_last_week_merged_pr,
@@ -43,6 +44,8 @@ def generate_weekly_summary() -> list[str]:
         res.extend(
             f" - {text}" for text in get_last_week_closed_issues(session)
         )
+        res.append("\n## Active core-devs\n")
+        res.append(", ".join(get_last_week_active_core_devs(session)))
 
     return res
 

@@ -1,18 +1,19 @@
 # noqa: INP001
+import datetime
 import os
 from pathlib import Path
-import requests
-import datetime
-import math
 
 from napari_dashboard.db_schema.github import PullRequestCommits
-from napari_dashboard.db_update.github import ensure_user, get_repo_with_model, get_commits
+from napari_dashboard.db_update.github import (
+    ensure_user,
+    get_commits,
+    get_repo_with_model,
+)
+from napari_dashboard.db_update.util import setup_cache
+from napari_dashboard.get_webpage.gdrive import fetch_database
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 from tqdm import tqdm
-
-from napari_dashboard.db_update.util import setup_cache
-from napari_dashboard.get_webpage.gdrive import fetch_database
 
 db_path = Path(__file__).parent.parent / "dashboard.db"
 
@@ -21,6 +22,7 @@ PR_COMMITS_HEADER = {
     "Authorization": f"Bearer {os.environ.get('GH_TOKEN_')}",
     "X-GitHub-Api-Version": "2022-11-28",
 }
+
 
 def main():
     fetch_database()
@@ -46,18 +48,21 @@ def main():
             ):
                 commits_json = get_commits(pr)
 
-
                 for commit in commits_json:
                     # if session.query(PullRequestCommits).get(commit.sha):
                     #     continue
                     user_login = (
-                        commit['author']['login'] if commit['author'] else pr.user.login
+                        commit["author"]["login"]
+                        if commit["author"]
+                        else pr.user.login
                     )
-                    date = datetime.datetime.fromisoformat(commit['commit']['author']['date']).replace(tzinfo=None)
+                    date = datetime.datetime.fromisoformat(
+                        commit["commit"]["author"]["date"]
+                    ).replace(tzinfo=None)
                     ensure_user(user_login, session)
                     session.merge(
                         PullRequestCommits(
-                            sha=commit['sha'],
+                            sha=commit["sha"],
                             user=user_login,
                             date=date,
                             pr_num=pr.number,

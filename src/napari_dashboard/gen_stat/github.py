@@ -760,3 +760,60 @@ def get_last_week_closed_issues(session: Session):
     )
 
     return [issue_to_desc(issue) for issue in new_issues]
+
+
+def get_last_week_active_core_devs(session: Session):
+    """Get the active core developers from the last week
+
+    Get core-devs who has created at least one commnent,
+    review or commit in the last week
+    """
+    stat, stop = get_last_week()
+
+    pr_comments = [
+        x.username
+        for x in (
+            session.query(GithubUser)
+            .filter(GithubUser.username.in_(CORE_DEVS))
+            .outerjoin(PullRequestComments)
+            .filter(
+                PullRequestComments.date >= stat,
+                PullRequestComments.date <= stop,
+            )
+        ).all()
+    ]
+    pr_reviews = [
+        x.username
+        for x in (
+            session.query(GithubUser)
+            .filter(GithubUser.username.in_(CORE_DEVS))
+            .outerjoin(PullRequestReviews)
+            .filter(
+                PullRequestReviews.date >= stat,
+                PullRequestReviews.date <= stop,
+            )
+        ).all()
+    ]
+    pr_commits = [
+        x.username
+        for x in (
+            session.query(GithubUser)
+            .filter(GithubUser.username.in_(CORE_DEVS))
+            .outerjoin(PullRequestCommits)
+            .filter(
+                PullRequestCommits.date >= stat,
+                PullRequestCommits.date <= stop,
+            )
+        ).all()
+    ]
+    issue_comments = [
+        x.username
+        for x in (
+            session.query(GithubUser)
+            .filter(GithubUser.username.in_(CORE_DEVS))
+            .outerjoin(IssueComment)
+            .filter(IssueComment.date >= stat, IssueComment.date <= stop)
+        ).all()
+    ]
+
+    return sorted(set(pr_comments + pr_reviews + pr_commits + issue_comments))
