@@ -1,5 +1,9 @@
 import logging
 import os
+import requests
+import datetime
+import math
+import time
 
 from github import (
     Auth,
@@ -33,12 +37,36 @@ logger = logging.getLogger(__name__)
 
 _G = None
 
+PR_COMMITS_HEADER = {
+    "Accept": "application/vnd.github+json",
+    "Authorization": f"Bearer {os.environ.get('GH_TOKEN_')}",
+    "X-GitHub-Api-Version": "2022-11-28",
+}
+
+
+def get_commits(pr: GHPullRequest):
+    commits_json = []
+    i = 1
+    while i < int(math.ceil(pr.commits / 100)) + 1:
+        resp = requests.get(
+                f"{pr.commits_url}?page={i}&per_page=100",
+                headers=PR_COMMITS_HEADER,
+            )
+        if resp.status_code == 200:
+            commits_json.extend(resp.json())
+            i+=1
+        if resp.status_code in {403, 429}:
+            sleep_time = int(resp.headers.get("x-ratelimit-reset")) - time.time()
+            logger.warning("Rate limit exceeded. Sleeping for %s seconds", sleep_time)
+            time.sleep(sleep_time)
+    return commits_json
+
 
 def get_github(token: str = GH_TOKEN_):
     global _G
     if _G is None:
         auth = Auth.Token(token)
-        _G = Github(auth=auth)
+        _G = Github(auth=auth, per_page=100)
     return _G
 
 
@@ -245,23 +273,28 @@ def save_pull_requests(user: str, repo: str, session: Session) -> None:
         for key, value in _get_pr_attributes(pr, session).items():
             setattr(pull, key, value)
 
-        commits = list(pr.get_commits())
-        dates = {x.raw_data["commit"]["author"]["date"] for x in commits}
-        assert len(commits) == 1 or len(dates) > 1
-        # workaround for bug in pygithub that wronly set last modified time
+        commits_json = []
+        while len(commits_json) < pr.commits:
+            commits_json.extend(
+                requests.get(
+                    f"{pr.commits_url}?page={len(commits_json) + 1}&per_page=100",
+                    headers=PR_COMMITS_HEADER,
+                ).json()
+            )        # workaround for bug in pygithub that wronly set last modified time
 
-        for commit in commits:
-            if session.query(PullRequestCommits).get(commit.sha):
-                continue
+        for commit in commits_json:
+            # if session.query(PullRequestCommits).get(commit.sha):
+            #     continue
             user_login = (
-                commit.author.login if commit.author else pr.user.login
+                commit['author']['login'] if commit['author'] else pr.user.login
             )
+            date = datetime.datetime.fromisoformat(commit['commit']['author']['date']).replace(tzinfo=None)
             ensure_user(user_login, session)
             session.merge(
                 PullRequestCommits(
-                    sha=commit.sha,
+                    sha=commit['sha'],
                     user=user_login,
-                    date=commit.last_modified_datetime,
+                    date=date,
                     pr_num=pr.number,
                     repository_name=repo_model.name,
                     repository_user=repo_model.user,

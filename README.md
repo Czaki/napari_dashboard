@@ -1,3 +1,3 @@
 # Napari Dashboard
 
-Implementation of dasboard with statisctis about napari usage based on public data 
+Implementation of dashboard with statistics about napari usage based on public data 
