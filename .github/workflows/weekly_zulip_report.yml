@@ -35,7 +35,7 @@ jobs:
 
       - name: Build the dashboard
         run: |
-          python -m napari_dashboard.get_weekly_summary --send_zulip
+          python -m napari_dashboard.get_weekly_summary --send_zulip --channel ${{ (github.event_name == 'schedule') && 'core-devs' || 'metrics and analytics' }}
         env:
           PEPY_KEY: ${{ secrets.PEPY_KEY }}
           GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}

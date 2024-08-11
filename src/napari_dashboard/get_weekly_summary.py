@@ -53,6 +53,7 @@ def generate_weekly_summary() -> list[str]:
 def main():
     parse = argparse.ArgumentParser()
     parse.add_argument("--send_zulip", action="store_true")
+    parse.add_argument("--channel", default="metrics and analytics", help="Zulip channel to send the message to")
 
     args = parse.parse_args()
 
@@ -81,7 +82,7 @@ def main():
             client.send_message(
                 {
                     "type": "stream",
-                    "to": "metrics and analytics",
+                    "to": args.channel,
                     "subject": "Weekly Summary",
                     "content": content,
                 }
