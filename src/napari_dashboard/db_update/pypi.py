@@ -101,6 +101,7 @@ def _save_pepy_download_stat(session: Session, package: str):
             package,
             pepy["message"],
         )
+        return
     session.merge(
         PePyTotalDownloads(name=package, downloads=pepy["total_downloads"])
     )
