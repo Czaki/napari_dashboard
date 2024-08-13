@@ -8,41 +8,50 @@ from sqlalchemy.orm import Session
 from napari_dashboard.gen_stat.github import (
     get_last_week,
     get_last_week_active_core_devs,
-    get_last_week_closed_issues,
-    get_last_week_closed_pr,
-    get_last_week_merged_pr,
-    get_last_week_new_issues,
-    get_last_week_new_pr,
-    get_last_week_updated_issues,
-    get_last_week_updated_pr,
+    get_last_week_closed_issues_as_md,
+    get_last_week_closed_pr_md,
+    get_last_week_merged_pr_md,
+    get_last_week_new_issues_md,
+    get_last_week_new_pr_md,
+    get_last_week_updated_issues_md,
+    get_last_week_updated_pr_md,
 )
 from napari_dashboard.get_webpage.gdrive import fetch_database
 
 
-def generate_weekly_summary() -> list[str]:
+def generate_weekly_summary(fetch_db: bool) -> list[str]:
     start, end = get_last_week()
     logging.basicConfig(level=logging.INFO)
-    fetch_database()
+    if fetch_db:
+        fetch_database()
     engine = create_engine("sqlite:///dashboard.db")
     res = [f"# Weekly Summary {start.date()}-{end.date()}\n"]
     with Session(engine) as session:
         res.append("## New Pull Requests\n")
-        res.extend(f" - {text}" for text in get_last_week_new_pr(session))
+        res.extend(f" - {text}" for text in get_last_week_new_pr_md(session))
         res.append("\n## Updated Pull Requests (state unchanged)\n")
-        res.extend(f" - {text}" for text in get_last_week_updated_pr(session))
+        res.extend(
+            f" - {text}" for text in get_last_week_updated_pr_md(session)
+        )
         res.append("\n## Merged Pull Requests\n")
-        res.extend(f" - {text}" for text in get_last_week_merged_pr(session))
+        res.extend(
+            f" - {text}" for text in get_last_week_merged_pr_md(session)
+        )
         res.append("\n## Closed Pull Requests (not merged)\n")
-        res.extend(f" - {text}" for text in get_last_week_closed_pr(session))
+        res.extend(
+            f" - {text}" for text in get_last_week_closed_pr_md(session)
+        )
         res.append("\n## New Issues\n")
-        res.extend(f" - {text}" for text in get_last_week_new_issues(session))
+        res.extend(
+            f" - {text}" for text in get_last_week_new_issues_md(session)
+        )
         res.append("\n## Updated Issues\n")
         res.extend(
-            f" - {text}" for text in get_last_week_updated_issues(session)
+            f" - {text}" for text in get_last_week_updated_issues_md(session)
         )
         res.append("\n## Closed Issues\n")
         res.extend(
-            f" - {text}" for text in get_last_week_closed_issues(session)
+            f" - {text}" for text in get_last_week_closed_issues_as_md(session)
         )
         res.append("\n## Active core-devs\n")
         res.append(", ".join(get_last_week_active_core_devs(session)))
@@ -52,12 +61,19 @@ def generate_weekly_summary() -> list[str]:
 
 def main():
     parse = argparse.ArgumentParser()
-    parse.add_argument("--send_zulip", action="store_true")
-    parse.add_argument("--channel", default="metrics and analytics", help="Zulip channel to send the message to")
+    parse.add_argument("--send-zulip", action="store_true")
+    parse.add_argument(
+        "--channel",
+        default="metrics and analytics",
+        help="Zulip channel to send the message to",
+    )
+    parse.add_argument(
+        "--no-fetch", action="store_true", help="Do not fetch the database"
+    )
 
     args = parse.parse_args()
 
-    message = generate_weekly_summary()
+    message = generate_weekly_summary(not args.no_fetch)
     if args.send_zulip:
         import zulip
 

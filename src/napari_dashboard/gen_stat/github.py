@@ -24,7 +24,7 @@ from napari_dashboard.db_schema.github import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Iterable, Sequence
 
     from sqlalchemy.orm import Session
 
@@ -634,20 +634,24 @@ def issue_to_desc(issue: Issues) -> str:
     return f"{book_mark} [{issue.repository_user}/{issue.repository_name}#{issue.issue}](https://github.com/{issue.repository_user}/{issue.repository_name}/issues/{issue.issue}) {issue.title} ({issue.user})"
 
 
-def get_last_week_new_pr(session: Session):
+def get_last_week_new_pr(session: Session) -> Iterable[PullRequests]:
+    """Get PR opened in last week"""
     start, stop = get_last_week()
-    new_pr = (
+    return (
         session.query(PullRequests)
         .filter(PullRequests.open_time > start, PullRequests.open_time < stop)
         .all()
     )
 
-    return [pr_to_desc(pr) for pr in new_pr]
+
+def get_last_week_new_pr_md(session: Session):
+    return [pr_to_desc(pr) for pr in get_last_week_new_pr(session)]
 
 
-def get_last_week_updated_pr(session: Session):
+def get_last_week_updated_pr(session: Session) -> Iterable[PullRequests]:
+    """Get PR updated in last week, but open before last week and not closed"""
     start, stop = get_last_week()
-    base_querry = (
+    return (
         session.query(PullRequests)
         .filter(
             PullRequests.open_time < start, PullRequests.close_time.is_(null())
@@ -673,28 +677,15 @@ def get_last_week_updated_pr(session: Session):
         )
         .all()
     )
-    # query_with_reviews = (
-    #     base_querry.outerjoin(PullRequestReviews).filter(
-    #         PullRequestReviews.date > start, PullRequestReviews.date < stop
-    #     ).all()
-    # )
-    # query_with_comments = (
-    #     base_querry.outerjoin(PullRequestComments).filter(
-    #         PullRequestComments.date > start, PullRequestComments.date < stop
-    #     ).all()
-    # )
-    # query_with_commits = (
-    #     base_querry.outerjoin(PullRequestCommits).filter(
-    #         PullRequestCommits.date > start, PullRequestCommits.date < stop
-    #     ).all()
-    # )
-
-    return [pr_to_desc(pr) for pr in base_querry]
 
 
-def get_last_week_merged_pr(session: Session):
+def get_last_week_updated_pr_md(session: Session) -> list[str]:
+    return [pr_to_desc(pr) for pr in get_last_week_updated_pr(session)]
+
+
+def get_last_week_merged_pr(session: Session) -> Iterable[PullRequests]:
     start, stop = get_last_week()
-    new_pr = (
+    return (
         session.query(PullRequests)
         .filter(
             PullRequests.merge_time > start,
@@ -704,12 +695,15 @@ def get_last_week_merged_pr(session: Session):
         .all()
     )
 
-    return [pr_to_desc(pr) for pr in new_pr]
+
+def get_last_week_merged_pr_md(session: Session):
+    return [pr_to_desc(pr) for pr in get_last_week_merged_pr(session)]
 
 
-def get_last_week_closed_pr(session: Session):
+def get_last_week_closed_pr(session: Session) -> Iterable[PullRequests]:
+    """get PR closed in last week"""
     start, stop = get_last_week()
-    new_pr = (
+    return (
         session.query(PullRequests)
         .filter(
             PullRequests.close_time > start,
@@ -720,23 +714,30 @@ def get_last_week_closed_pr(session: Session):
         .all()
     )
 
-    return [pr_to_desc(pr) for pr in new_pr]
+
+def get_last_week_closed_pr_md(session: Session):
+    return [pr_to_desc(pr) for pr in get_last_week_closed_pr(session)]
 
 
-def get_last_week_new_issues(session: Session):
+def get_last_week_new_issues(session: Session) -> Iterable[Issues]:
     start, stop = get_last_week()
-    new_issues = (
+    return (
         session.query(Issues)
         .filter(Issues.open_time > start, Issues.open_time < stop)
         .all()
     )
 
-    return [issue_to_desc(issue) for issue in new_issues]
+
+def get_last_week_new_issues_md(session: Session):
+    return [
+        issue_to_desc(issue) for issue in get_last_week_updated_issues(session)
+    ]
 
 
-def get_last_week_updated_issues(session: Session):
+def get_last_week_updated_issues(session: Session) -> Iterable[Issues]:
+    """get issues that were updated in the last week but not closed"""
     start, stop = get_last_week()
-    new_issues = (
+    return (
         session.query(Issues)
         .filter(Issues.open_time < start, Issues.close_time.is_(null()))
         .join(IssueComment)
@@ -744,12 +745,19 @@ def get_last_week_updated_issues(session: Session):
         .all()
     )
 
-    return [issue_to_desc(issue) for issue in new_issues]
+
+def get_last_week_updated_issues_md(session: Session) -> list[str]:
+    return [
+        issue_to_desc(issue) for issue in get_last_week_updated_issues(session)
+    ]
 
 
-def get_last_week_closed_issues(session: Session):
+def get_last_week_closed_issues(session: Session) -> Iterable[Issues]:
+    """
+    Get the closed issues from the last week, that were opened before the last week
+    """
     start, stop = get_last_week()
-    new_issues = (
+    return (
         session.query(Issues)
         .filter(
             Issues.close_time > start,
@@ -759,7 +767,12 @@ def get_last_week_closed_issues(session: Session):
         .all()
     )
 
-    return [issue_to_desc(issue) for issue in new_issues]
+
+def get_last_week_closed_issues_as_md(session: Session) -> list[str]:
+    """Get the closed issues from the last week as markdown"""
+    return [
+        issue_to_desc(issue) for issue in get_last_week_closed_issues(session)
+    ]
 
 
 def get_last_week_active_core_devs(session: Session):
