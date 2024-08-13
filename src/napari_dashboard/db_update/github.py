@@ -378,8 +378,19 @@ def save_issues(user: str, repo: str, session: Session) -> None:
     for issue in tqdm(
         issue_iter, total=issue_iter.totalCount, desc=f"Issues {user}/{repo}"
     ):
-        if issue.pull_request is not None:
+        if (
+            session.get(
+                PullRequests,
+                {
+                    "repository_user": repo_model.user,
+                    "repository_name": repo_model.name,
+                    "pull_request": issue.number,
+                },
+            )
+            is not None
+        ):
             continue
+
         issue_ob = (
             session.query(Issues)
             .filter(
@@ -389,6 +400,8 @@ def save_issues(user: str, repo: str, session: Session) -> None:
             )
             .first()
         )
+        if issue_ob is None and issue.pull_request is not None:
+            continue
 
         if issue_ob is None:
             ensure_user(issue.user.login, session)

@@ -32,6 +32,10 @@ if typing.TYPE_CHECKING:
 START_DATE = "2018-01-01"
 
 
+class PackageNotFound(Exception):
+    pass
+
+
 def indexed_projects(engine: Engine) -> list[str]:
     with Session(engine) as session:
         dist = session.query(PyPi.project).distinct()
@@ -157,6 +161,8 @@ def _fetch_pypi_download_information(url: str, depth=10):
         if depth == 0:
             raise ValueError("Too many timeouts for pypi stats")
         return _fetch_pypi_download_information(url, depth - 1)
+    if result.status_code == 404:
+        raise PackageNotFound(f"Package not found at {url}")
     if result.status_code != 200:
         raise ValueError(
             f"Error fetching pypi info for {url} with status {result.status_code} and body {result.text}"
@@ -165,15 +171,19 @@ def _fetch_pypi_download_information(url: str, depth=10):
 
 
 def _save_pypi_download_information(session: Session, package: str):
-    overall = _fetch_pypi_download_information(
-        f"https://pypistats.org/api/packages/{package}/overall"
-    )
-    python_minor = _fetch_pypi_download_information(
-        f"https://pypistats.org/api/packages/{package}/python_minor"
-    )
-    system = _fetch_pypi_download_information(
-        f"https://pypistats.org/api/packages/{package}/system"
-    )
+    try:
+        overall = _fetch_pypi_download_information(
+            f"https://pypistats.org/api/packages/{package}/overall"
+        )
+        python_minor = _fetch_pypi_download_information(
+            f"https://pypistats.org/api/packages/{package}/python_minor"
+        )
+        system = _fetch_pypi_download_information(
+            f"https://pypistats.org/api/packages/{package}/system"
+        )
+    except PackageNotFound:
+        logging.warning("Package %s not found", package)
+        return
 
     for el in overall["data"]:
         session.merge(
