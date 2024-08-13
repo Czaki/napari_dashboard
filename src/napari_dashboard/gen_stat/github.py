@@ -863,21 +863,21 @@ def get_last_week_active_core_devs(session: Session):
 
 def get_weekly_summary_of_activity(session: Session):
     return {
-        "Merged PRs": [
+        "Merged old PRs": [
             pr_to_page_dict(x) for x in get_last_week_merged_pr(session)
         ],
-        "Solved Issues": [
+        "Solved old Issues": [
             issue_to_page_dict(x) for x in get_last_week_closed_issues(session)
-        ],
-        "Updated PRs": [
-            pr_to_page_dict(x) for x in get_last_week_updated_pr(session)
-        ],
-        "Updated Issues": [
-            issue_to_page_dict(x)
-            for x in get_last_week_updated_issues(session)
         ],
         "New PRs": [pr_to_page_dict(x) for x in get_last_week_new_pr(session)],
         "New Issues": [
             issue_to_page_dict(x) for x in get_last_week_new_issues(session)
+        ],
+        "Updated old PRs": [
+            pr_to_page_dict(x) for x in get_last_week_updated_pr(session)
+        ],
+        "Updated old Issues": [
+            issue_to_page_dict(x)
+            for x in get_last_week_updated_issues(session)
         ],
     }
