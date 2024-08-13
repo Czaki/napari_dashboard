@@ -742,6 +742,16 @@
             <p><small>Plugins with more than 1500 downloads in last month are considered as actively used plugins.</small></p>
             <p><small>Plugins {% for name in plugins.skip %} <code>{{ name }}</code>{% if not loop.last %},{% endif %} {% endfor %} were exclude from this analysis.</small></p>
 
+            <h2>Repository activity since {{ last_week_range[0].date() }} to {{ last_week_range[1].date() }}</h2>
+            {% for key, value in last_week_summary.items() %}
+            <h3>{{ key }}</h3>
+            <ul>
+                {% for v in value %}
+                <li>{{ v.book }} <a href="{{ v.url }}">{{ v.identifier }}</a> {{ v.title }} <i>by</i> {{ v.user }} </li>
+                {% endfor %}
+            </ul>
+            {% endfor %}
+
             <div>
                 Source data for this statistics is available <a href="https://docs.google.com/spreadsheets/d/107iO-Y17fVQdM76iLQqVnNiQqvAvogR7/edit?usp=drive_link&ouid=100489959545961481533&rtpof=true&sd=true">here</a>
             </div>

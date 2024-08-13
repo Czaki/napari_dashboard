@@ -634,6 +634,35 @@ def issue_to_desc(issue: Issues) -> str:
     return f"{book_mark} [{issue.repository_user}/{issue.repository_name}#{issue.issue}](https://github.com/{issue.repository_user}/{issue.repository_name}/issues/{issue.issue}) {issue.title} ({issue.user})"
 
 
+def pr_to_page_dict(pr: PullRequests) -> dict[str, str]:
+    end_day = get_last_week()[1]
+    book_mark = "📖"
+    if pr.close_time is not None and pr.close_time < end_day:
+        book_mark = "📗" if pr.merge_time is not None else "📕"
+
+    return {
+        "book": book_mark,
+        "title": pr.title,
+        "url": f"https://github.com/{pr.repository_user}/{pr.repository_name}/pull/{pr.pull_request}",
+        "user": pr.user,
+        "identifier": f"{pr.repository_user}/{pr.repository_name}#{pr.pull_request}",
+    }
+
+
+def issue_to_page_dict(issue: Issues) -> dict[str, str]:
+    end_day = get_last_week()[1]
+    book_mark = "📖"
+    if issue.close_time is not None and issue.close_time < end_day:
+        book_mark = "📗"
+    return {
+        "book": book_mark,
+        "title": issue.title,
+        "url": f"https://github.com/{issue.repository_user}/{issue.repository_name}/issues/{issue.issue}",
+        "user": issue.user,
+        "identifier": f"{issue.repository_user}/{issue.repository_name}#{issue.issue}",
+    }
+
+
 def get_last_week_new_pr(session: Session) -> Iterable[PullRequests]:
     """Get PR opened in last week"""
     start, stop = get_last_week()
@@ -830,3 +859,25 @@ def get_last_week_active_core_devs(session: Session):
     ]
 
     return sorted(set(pr_comments + pr_reviews + pr_commits + issue_comments))
+
+
+def get_weekly_summary_of_activity(session: Session):
+    return {
+        "Merged PRs": [
+            pr_to_page_dict(x) for x in get_last_week_merged_pr(session)
+        ],
+        "Solved Issues": [
+            issue_to_page_dict(x) for x in get_last_week_closed_issues(session)
+        ],
+        "Updated PRs": [
+            pr_to_page_dict(x) for x in get_last_week_updated_pr(session)
+        ],
+        "Updated Issues": [
+            issue_to_page_dict(x)
+            for x in get_last_week_updated_issues(session)
+        ],
+        "New PRs": [pr_to_page_dict(x) for x in get_last_week_new_pr(session)],
+        "New Issues": [
+            issue_to_page_dict(x) for x in get_last_week_new_issues(session)
+        ],
+    }

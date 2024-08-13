@@ -22,6 +22,8 @@ from napari_dashboard.gen_stat.github import (
     calc_stars_per_day_cumulative,
     generate_basic_stats,
     generate_contributors_stats,
+    get_last_week,
+    get_weekly_summary_of_activity,
 )
 from napari_dashboard.gen_stat.imagesc import get_topics_count
 from napari_dashboard.gen_stat.pypi import (
@@ -425,6 +427,7 @@ def generate_webpage(
             session, "napari", date
         )
         os_info = get_download_per_operating_system(session, "napari", date)
+        last_week_summary = get_weekly_summary_of_activity(session)
 
     # Data to be rendered
     data = {
@@ -465,6 +468,8 @@ def generate_webpage(
         "pr_activity_plot5": generate_pull_request_plot5(stats, date),
         "stars_plot": generate_stars_plot(stars),
         "download_map": generate_download_map(),
+        "last_week_summary": last_week_summary,
+        "last_week_range": get_last_week(),
     }
     print("generating webpage")
 
