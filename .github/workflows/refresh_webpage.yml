@@ -35,7 +35,7 @@ jobs:
 
     - name: Build the dashboard
       run: |
-        traceback-with-variables -m napari_dashboard.get_webpage.gdrive
+        traceback-with-variables napari_dashboard.get_webpage.gdrive
       env:
         PEPY_KEY: ${{ secrets.PEPY_KEY }}
         GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}
