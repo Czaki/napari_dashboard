@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import datetime
+import logging
 import os
 import typing
 from time import sleep
@@ -94,6 +95,12 @@ def _save_pepy_download_stat(session: Session, package: str):
         f"https://pepy.tech/api/v2/projects/{package}",
         headers={"X-Api-Key": os.environ["PEPY_KEY"]},
     ).json()
+    if "total_downloads" not in pepy:
+        logging.warning(
+            "Error fetching pepy info for %s with message %s",
+            package,
+            pepy["message"],
+        )
     session.merge(
         PePyTotalDownloads(name=package, downloads=pepy["total_downloads"])
     )
