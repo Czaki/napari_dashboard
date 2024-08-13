@@ -6,8 +6,8 @@ import typing
 from time import sleep
 
 import requests
-import tqdm
 from sqlalchemy.orm import Session
+from tqdm.auto import tqdm
 
 from napari_dashboard.db_schema.pypi import (
     OperatingSystem,
@@ -119,7 +119,7 @@ def _save_pepy_download_stat(session: Session, package: str):
 
 
 def save_pepy_download_stat(session: Session):
-    for plugin in tqdm.tqdm(
+    for plugin in tqdm(
         get_packages_to_fetch(), desc="Fetching pepy plugin stats"
     ):
         _save_pepy_download_stat(session, plugin)
@@ -201,7 +201,7 @@ def save_pypi_download_information(session: Session):
     init_python_version(session)
     session.commit()
 
-    for plugin in tqdm.tqdm(
+    for plugin in tqdm(
         get_packages_to_fetch(), desc="Fetching pypistats data"
     ):
         _save_pypi_download_information(session, plugin)
@@ -228,7 +228,7 @@ def _save_package_release(session: Session, name: str):
 
 
 def save_package_release(session: Session):
-    for plugin in tqdm.tqdm(
+    for plugin in tqdm(
         get_packages_to_fetch(), desc="Fetching pypi release data"
     ):
         _save_package_release(session, plugin)

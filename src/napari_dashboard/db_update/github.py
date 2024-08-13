@@ -12,7 +12,7 @@ from github import (
     Repository as GHRepository,
 )
 from sqlalchemy.orm import Session
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from napari_dashboard.db_schema.github import (
     BOT_SET,

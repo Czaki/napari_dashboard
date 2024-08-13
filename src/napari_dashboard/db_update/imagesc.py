@@ -1,8 +1,8 @@
 import datetime
 
 import requests
-import tqdm
 from sqlalchemy.orm import Session
+from tqdm.auto import tqdm
 
 from napari_dashboard.db_schema.imagesc import ForumTag, ForumTopic, ForumUser
 from napari_dashboard.db_update.util import get_or_create
@@ -38,7 +38,7 @@ def save_forum_info(session: Session):
     user_dict = {}
     tag_dict = {}
 
-    with tqdm.tqdm(desc="Fetching forum information") as pbar:
+    with tqdm(desc="Fetching forum information") as pbar:
         while True:
             pbar.update(1)
             topics = requests.get(

@@ -1,8 +1,8 @@
 import datetime
 
 import requests
-import tqdm
 from sqlalchemy.orm import Session
+from tqdm.auto import tqdm
 
 from napari_dashboard.db_schema.conda import CondaDownload
 
@@ -60,7 +60,7 @@ def save_conda_download_information(session: Session):
         session, "npe2", "conda-forge/npe2", today
     )
 
-    for pypi_name, conda_name in tqdm.tqdm(
+    for pypi_name, conda_name in tqdm(
         conda_translation.items(), desc="Fetching conda info"
     ):
         _save_conda_download_information_for_package(
