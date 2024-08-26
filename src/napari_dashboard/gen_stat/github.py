@@ -759,7 +759,7 @@ def get_last_week_new_issues(session: Session) -> Iterable[Issues]:
 
 def get_last_week_new_issues_md(session: Session):
     return [
-        issue_to_desc(issue) for issue in get_last_week_updated_issues(session)
+        issue_to_desc(issue) for issue in get_last_week_new_issues(session)
     ]
 
 
