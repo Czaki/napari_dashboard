@@ -53,7 +53,7 @@ def generate_weekly_summary(fetch_db: bool) -> list[str]:
         res.extend(
             f" - {text}" for text in get_last_week_closed_issues_as_md(session)
         )
-        res.append("\n## Active core-devs\n")
+        res.append("\n## Core-devs active in repositories\n")
         res.append(", ".join(get_last_week_active_core_devs(session)))
 
     return res
