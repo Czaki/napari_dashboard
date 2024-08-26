@@ -137,7 +137,9 @@ def save_stars(user: str, repo: str, session: Session) -> None:
         )
         return
     if count > gh_repo.stargazers_count:
-        session.query(Stars).filter(Stars.repository == repo_model.id).delete()
+        session.query(Stars).filter(
+            Stars.gh_repository == repo_model.id
+        ).delete()
         session.commit()
         logger.info(
             "Reset starts because have more saved stars %s than exists %s",
