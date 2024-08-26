@@ -138,7 +138,8 @@ def save_stars(user: str, repo: str, session: Session) -> None:
         return
     if count > gh_repo.stargazers_count:
         session.query(Stars).filter(
-            Stars.gh_repository == repo_model.id
+            Stars.repository_name == repo_model.name,
+            Stars.repository_user == repo_model.user,
         ).delete()
         session.commit()
         logger.info(
