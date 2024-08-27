@@ -366,6 +366,14 @@ def generate_download_map():
     ).to_html(full_html=False, include_plotlyjs="cdn")
 
 
+def get_plugin_info():
+    for _ in range(10):
+        request = requests.get("https://api.napari.org/api/plugins")
+        if request.status_code == 200:
+            return request.json()
+    raise RuntimeError("Failed to get plugin info")
+
+
 def generate_webpage(
     target_path: Path,
     db_path: Path,
@@ -386,7 +394,7 @@ def generate_webpage(
     setup_cache(timeout=60 * 60 * 4)
 
     skip_plugins = {"PartSeg", "skan"}
-    plugins = requests.get("https://api.napari.org/api/plugins").json()
+    plugins = get_plugin_info()
     valid_plugins = {x for x in plugins if x not in skip_plugins}
 
     with Session(engine) as session:
