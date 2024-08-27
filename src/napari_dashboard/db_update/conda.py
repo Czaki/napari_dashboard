@@ -1,4 +1,5 @@
 import datetime
+import time
 
 import requests
 import tqdm
@@ -43,8 +44,14 @@ def _save_conda_download_information_for_package(
         )
 
 
-def save_conda_download_information(session: Session):
-    conda_translation = requests.get("https://api.napari.org/api/conda").json()
+def save_conda_download_information(session: Session, limit: int = 10):
+    response = requests.get("https://api.napari.org/api/conda")
+    if response.status_code != 200:
+        if limit == 0:
+            raise RuntimeError("Failed to fetch conda info")
+        time.sleep(1)
+        save_conda_download_information(session, limit - 1)
+    conda_translation = response.json()
     today = datetime.date.today()
 
     _save_conda_download_information_for_package(
