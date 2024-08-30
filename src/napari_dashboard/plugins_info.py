@@ -5,6 +5,8 @@ import re
 from functools import lru_cache
 from urllib.request import Request, urlopen
 
+from napari_dashboard.utils import requests_get
+
 
 def normalized_name(name: str) -> str:
     """
@@ -19,9 +21,9 @@ def plugins_list() -> list[dict]:
     """
     Contact the npe2api to get the list of plugins
     """
-    url = "https://npe2api.vercel.app/api/extended_summary"
-    with urlopen(Request(url)) as resp:
-        return json.load(resp)
+    url = "https://api.napari.org/api/extended_summary"
+    data = requests_get(url)
+    return json.load(data)
 
 
 def plugin_name_list() -> list[str]:

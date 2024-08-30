@@ -6,6 +6,7 @@ import tqdm
 from sqlalchemy.orm import Session
 
 from napari_dashboard.db_schema.conda import CondaDownload
+from napari_dashboard.utils import requests_get
 
 
 def _save_conda_download_information_for_package(
@@ -45,12 +46,7 @@ def _save_conda_download_information_for_package(
 
 
 def save_conda_download_information(session: Session, limit: int = 10):
-    response = requests.get("https://api.napari.org/api/conda")
-    if response.status_code != 200:
-        if limit == 0:
-            raise RuntimeError("Failed to fetch conda info")
-        time.sleep(1)
-        save_conda_download_information(session, limit - 1)
+    response = requests_get("https://api.napari.org/api/conda")
     conda_translation = response.json()
     today = datetime.date.today()
 

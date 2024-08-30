@@ -8,6 +8,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 import requests
 from jinja2 import Environment, FileSystemLoader
+from requests import request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -38,6 +39,7 @@ from napari_dashboard.gen_stat.pypi import (
     get_total_pypi_download,
     is_country,
 )
+from napari_dashboard.utils import requests_get
 
 TEMPLATE_DIR = Path(__file__).parent / "webpage_tmpl"
 LABELS = [
@@ -51,7 +53,7 @@ LABELS = [
 
 
 def get_plugin_count():
-    return len(requests.get("https://api.napari.org/api/plugins").json())
+    return len(requests_get("https://api.napari.org/api/plugins").json())
 
 
 LEGEND_POS = {"x": 0.01, "y": 0.95}
@@ -367,11 +369,7 @@ def generate_download_map():
 
 
 def get_plugin_info():
-    for _ in range(10):
-        request = requests.get("https://api.napari.org/api/plugins")
-        if request.status_code == 200:
-            return request.json()
-    raise RuntimeError("Failed to get plugin info")
+    return requests_get("https://api.napari.org/api/plugins").json()
 
 
 def generate_webpage(
