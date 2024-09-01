@@ -23,7 +23,7 @@ def plugins_list() -> list[dict]:
     """
     url = "https://api.napari.org/api/extended_summary"
     data = requests_get(url)
-    return json.load(data)
+    return data.json()
 
 
 def plugin_name_list() -> list[str]:
