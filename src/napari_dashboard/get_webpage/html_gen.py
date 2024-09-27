@@ -6,9 +6,7 @@ from pathlib import Path
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
-import requests
 from jinja2 import Environment, FileSystemLoader
-from requests import request
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
@@ -375,7 +373,7 @@ def get_plugin_info():
 def generate_webpage(
     target_path: Path,
     db_path: Path,
-    date: datetime.datetime,
+    since_date: datetime.datetime,
     dump_excel: bool = True,
 ) -> None:
     """
@@ -385,6 +383,12 @@ def generate_webpage(
     ----------
     target_path: Path
         Path where to save the generated webpage
+    db_path: Path
+        Path to the sqlite database file
+    since_date: datetime.datetime
+        Since these data up today, part of ths statistics is calculated.
+    dump_excel: bool
+        If True save the data to excel
     """
     target_path.mkdir(parents=True, exist_ok=True)
     print(f"db path {db_path.absolute()}, sqlite://{db_path.absolute()}")
@@ -396,15 +400,17 @@ def generate_webpage(
     valid_plugins = {x for x in plugins if x not in skip_plugins}
 
     with Session(engine) as session:
-        stats = generate_basic_stats("napari", "napari", session, date, LABELS)
+        stats = generate_basic_stats(
+            "napari", "napari", session, since_date, LABELS
+        )
         stars = calc_stars_per_day_cumulative("napari", "napari", session)
         stats["stars"] = stars["stars"][-1]
         stats["contributors"] = generate_contributors_stats(
             [("napari", "napari"), ("napari", "docs"), ("napari", "npe2")],
             session,
-            date,
+            since_date,
         )
-        forums_stats = get_topics_count(date, session)
+        forums_stats = get_topics_count(since_date, session)
         pypi_download_info = get_download_info(
             session, ["napari", "npe2", "napari-plugin-manager"]
         )
@@ -419,7 +425,7 @@ def generate_webpage(
             session, valid_plugins
         )
         under_active_development = get_recent_releases_date(
-            session, valid_plugins, date
+            session, valid_plugins, since_date
         )
         conda_download_info = {
             "Total": get_conda_total_download_info(
@@ -430,9 +436,11 @@ def generate_webpage(
             ),
         }
         python_version_info = get_download_per_python_version(
-            session, "napari", date
+            session, "napari", since_date
         )
-        os_info = get_download_per_operating_system(session, "napari", date)
+        os_info = get_download_per_operating_system(
+            session, "napari", since_date
+        )
         last_week_summary = get_weekly_summary_of_activity(session)
 
     # Data to be rendered
@@ -448,7 +456,7 @@ def generate_webpage(
             napari_downloads_per_day.values()
         ),
         "today": datetime.datetime.now().strftime("%Y-%m-%d"),
-        "base_day": date.strftime("%Y-%m-%d"),
+        "base_day": since_date.strftime("%Y-%m-%d"),
         "pypi_downloads": pypi_download_info,
         "forum": forums_stats,
         "conda_downloads": conda_download_info,
@@ -469,9 +477,9 @@ def generate_webpage(
         "issue_activity2": generate_issue_plot2(stats),
         "pr_activity_plot": generate_pull_request_plot(stats),
         "pr_activity_plot2": generate_pull_request_plot2(stats),
-        "pr_activity_plot3": generate_pull_request_plot3(stats, date),
-        "pr_activity_plot4": generate_pull_request_plot4(stats, date),
-        "pr_activity_plot5": generate_pull_request_plot5(stats, date),
+        "pr_activity_plot3": generate_pull_request_plot3(stats, since_date),
+        "pr_activity_plot4": generate_pull_request_plot4(stats, since_date),
+        "pr_activity_plot5": generate_pull_request_plot5(stats, since_date),
         "stars_plot": generate_stars_plot(stars),
         "download_map": generate_download_map(),
         "last_week_summary": last_week_summary,
@@ -502,10 +510,3 @@ def generate_webpage(
 
         with Session(engine) as session:
             generate_excel_file(target_path / "napari_dashboard.xlsx", session)
-
-    # Print the rendered HTML
-
-
-# conda download stats
-# plugin download stats
-# more plots

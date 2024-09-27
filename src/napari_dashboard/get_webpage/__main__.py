@@ -18,13 +18,16 @@ def main(args: Sequence[str] | None = None):
     )
     parser.add_argument("db_path", help="Path to the database", type=Path)
     parser.add_argument("--no-excel-dump", action="store_true")
+    parser.set_defaults(
+        since_date=datetime.datetime(year=2024, month=1, day=1)
+    )
     args = parser.parse_args(args)
 
     generate_webpage(
-        args.directory,
-        args.db_path,
-        datetime.datetime(year=2024, month=1, day=1),
-        not args.no_excel_dump,
+        target_path=args.directory,
+        db_path=args.db_path,
+        since_date=args.since_date,
+        dump_excel=not args.no_excel_dump,
     )
 
 
