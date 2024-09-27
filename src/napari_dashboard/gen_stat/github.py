@@ -673,7 +673,7 @@ def get_last_week_new_pr(session: Session) -> Iterable[PullRequests]:
     )
 
 
-def get_last_week_new_pr_md(session: Session):
+def get_last_week_new_pr_md(session: Session) -> list[str]:
     return [pr_to_desc(pr) for pr in get_last_week_new_pr(session)]
 
 

@@ -27,32 +27,28 @@ def generate_weekly_summary(fetch_db: bool) -> list[str]:
     engine = create_engine("sqlite:///dashboard.db")
     res = [f"# Weekly Summary {start.date()}-{end.date()}\n"]
     with Session(engine) as session:
-        res.append("## New Pull Requests\n")
-        res.extend(f" - {text}" for text in get_last_week_new_pr_md(session))
-        res.append("\n## Updated Pull Requests (state unchanged)\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_updated_pr_md(session)
-        )
-        res.append("\n## Merged Pull Requests\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_merged_pr_md(session)
-        )
-        res.append("\n## Closed Pull Requests (not merged)\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_closed_pr_md(session)
-        )
-        res.append("\n## New Issues\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_new_issues_md(session)
-        )
-        res.append("\n## Updated Issues\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_updated_issues_md(session)
-        )
-        res.append("\n## Closed Issues\n")
-        res.extend(
-            f" - {text}" for text in get_last_week_closed_issues_as_md(session)
-        )
+        if new_pr := get_last_week_new_pr_md(session):
+            res.append("## New Pull Requests\n")
+            res.extend(f" - {text}" for text in new_pr)
+        if updated_pr := get_last_week_updated_pr_md(session):
+            res.append("\n## Updated Pull Requests (state unchanged)\n")
+            res.extend(f" - {text}" for text in updated_pr)
+        if merged_pr := get_last_week_merged_pr_md(session):
+            res.append("\n## Merged Pull Requests\n")
+            res.extend(f" - {text}" for text in merged_pr)
+        if closed_pr := get_last_week_closed_pr_md(session):
+            res.append("\n## Closed Pull Requests (merged)\n")
+            res.extend(f" - {text}" for text in closed_pr)
+        if new_issue := get_last_week_new_issues_md(session):
+            res.append("\n## New Issues\n")
+            res.extend(f" - {text}" for text in new_issue)
+        if updated_issue := get_last_week_updated_issues_md(session):
+            res.append("\n## Updated Issues (state unchanged)\n")
+            res.extend(f" - {text}" for text in updated_issue)
+        if closed_issues := get_last_week_closed_issues_as_md(session):
+            res.append("\n## Closed Issues\n")
+            res.extend(f" - {text}" for text in closed_issues)
+
         res.append("\n## Core-devs active in repositories\n")
         res.append(", ".join(get_last_week_active_core_devs(session)))
 
