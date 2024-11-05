@@ -331,7 +331,7 @@ def generate_os_pie_chart(python_version_info):
     )
 
 
-def generate_download_map():
+def _generate_download_map():
     data = pd.read_csv(
         os.path.join(os.path.dirname(__file__), "data", "countries.csv")
     )
@@ -361,9 +361,24 @@ def generate_download_map():
                 "ticktext": [10**x for x in range(log_download_max)],
                 "tickmode": "array",
             },
+            showscale=True,
         ),
         layout={"height": 600},
-    ).to_html(full_html=False, include_plotlyjs="cdn")
+    )
+
+
+def generate_download_map():
+    return _generate_download_map().to_html(
+        full_html=False, include_plotlyjs="cdn"
+    )
+
+
+def generate_download_map_high_res():
+    fig = _generate_download_map()
+    fig.update_geos(
+        resolution=50  # Values can be 110 (low), 50 (medium), or 10 (high) - higher is more detailed
+    )
+    return fig.to_html(full_html=False, include_plotlyjs="cdn")
 
 
 def get_plugin_info():
@@ -482,6 +497,7 @@ def generate_webpage(
         "pr_activity_plot5": generate_pull_request_plot5(stats, since_date),
         "stars_plot": generate_stars_plot(stars),
         "download_map": generate_download_map(),
+        "download_map_high_res": generate_download_map_high_res(),
         "last_week_summary": last_week_summary,
         "last_week_range": get_last_week(),
     }
