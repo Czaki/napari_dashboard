@@ -1,5 +1,7 @@
 import os.path
 from dataclasses import dataclass
+from importlib.metadata import distribution
+from tqdm import tqdm
 
 import pandas as pd
 from packaging import version
@@ -96,7 +98,7 @@ def load_from_query_file(querry_file: str):
             break
 
 
-def get_version_from_beginning(details: str) -> tuple[str, str]:
+def get_version_from_beginning(details: str, with_pre=True) -> tuple[str, str]:
     """
     Get the version from the beginning of the string.
 
@@ -111,9 +113,21 @@ def get_version_from_beginning(details: str) -> tuple[str, str]:
         The version and the rest of the string
 
     """
-    for i in range(len(details)):
+    if with_pre:
+        suffix_li = ["rc", "a", "b", "dev", "post"]
+    else:
+        suffix_li = []
+    i = 0
+    while i < len(details):
         if details[i].isalpha():
-            return details[:i], details[i:]
+            for suffix in suffix_li:
+                if details[i:].startswith(suffix):
+                    i+=len(suffix)
+                    break
+            else:
+                return details[:i], details[i:]
+        else:
+            i += 1
     return details, ""
 
 
@@ -164,7 +178,7 @@ def parse_distro(distro: str):
         raise ValueError("No version found in distro string")
 
 
-def parse_system_from_string(details: str):
+def parse_system_from_string(details: str) -> tuple[str, str, str, str]:
     """
     Parse the system string to get the name and version
 
@@ -176,26 +190,52 @@ def parse_system_from_string(details: str):
 
     Returns
     -------
-    Tuple[str, str]
-        The system name and version
     """
+    for el in ("x86_64", "arm64", "AMD64", "i386", "OpenSSL", "iPad"):
+        if el in details:
+            details = details[: details.rfind(el)]
+            break
+    distribution_name, details = get_name_from_begin(details)
+    if distribution_name.startswith("WindowsVista"):
+        return "Windows", "Vista", "", ""
+    if distribution_name.startswith("WindowsME"):
+        return "Windows", "Me", "", ""
+    if distribution_name.startswith("CYGWIN"):
+        return "Cygwin", "", "", ""
+    if distribution_name.startswith("MSYS"):
+        return "MSYS", "", "", ""
+    if distribution_name == "Windows":
+        return distribution_name, details, "", ""
 
-    system_name, details = get_name_from_begin(details)
+    distribution_version, details = get_version_from_beginning(details, with_pre=False)
 
-    names = ["Linux", "Windows", "Darwin"]
-    processors = ["x86_64", "arm64", "AMD64"]
-    for name in names:
-        if name in details:
-            system_name = name
-            version_pos = details.find(name) + len(name)
-            for proc_name in processors:
-                if proc_name in details:
-                    proc_name_pos = details.find(proc_name)
-                    return system_name, details[version_pos:proc_name_pos]
-            if "OpenSSL" in details:
-                proc_name_pos = details.find("OpenSSL")
-                return system_name, details[version_pos:proc_name_pos]
-    raise ValueError("System name not found")
+    if distribution_name.startswith("Darwin"):
+        return "", "", "Darwin", distribution_version
+
+    if distribution_name == "iOS":
+        name, version = get_name_from_begin(details)
+        return distribution_name, distribution_version, name, version
+
+    if distribution_name in ("macOS", "OS X"):
+        system_name, details = get_name_from_begin(details)
+        assert system_name == "Darwin"
+        system_version, details = get_version_from_beginning(details, with_pre=False)
+        return distribution_name, distribution_version, system_name, system_version
+
+    if distribution_name == "Linux":
+        return distribution_name, distribution_version, "", ""
+
+    if "BSD" in distribution_name:
+        return distribution_name, distribution_version, "", ""
+
+    if "Linux" not in details:
+        raise ValueError("System name not found")
+
+
+    # we are in linux case
+    linux_pos = details.find("Linux")
+    linux_end = linux_pos + len("Linux")
+    return distribution_name, distribution_version, "Linux", details[linux_end:]
 
 
 def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
@@ -204,7 +244,7 @@ def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
 
     pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
     """
-    python_str_li = ["CPython", "PyPy"]
+    python_str_li = ["CPython", "PyPy", "GraalVM"]
 
     for python_str in python_str_li:
         python_pos = details.find(python_str)
@@ -230,8 +270,8 @@ def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
 
 def parse_details(row):
     # Parse strings like
-    # pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
     # pip21.33.8.3CPython3.8.3Windows7OpenSSL 1.1.1f  31 Mar 202062.1.0
+    # pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
     # pip20.3.13.7.4CPython3.7.4macOS10.12.6Darwin16.7.0x86_64OpenSSL 1.1.1d  10 Sep 201951.0.0
 
     details_str = row.DETAILS_ALL
@@ -248,41 +288,48 @@ def parse_details(row):
     distro_name, distro_version, system_name, system_version = (
         parse_system_from_string(details_str)
     )
+    return (
+        python_version,
+        python_implementation,
+        python_implementation_version,
+        system_name,
+        system_version,
+        distro_name,
+        distro_version,
+    )
 
 
 def load_from_czi_file(czi_file: str) -> pd.DataFrame:
     dkt = {"Darwin": False, "Linux": False, "Windows": False}
     df = pd.read_csv(czi_file)
-    for row in df.iterrows():
-        for key in dkt:
-            if key in row[1].DETAILS_ALL:
-                print(row[1].DETAILS_ALL)
-                del dkt[key]
-                break
-        if not dkt:
-            break
-        continue
+    for row in tqdm(df.iterrows(), total=len(df)):
+        (
+            python_version,
+            python_implementation,
+            python_implementation_version,
+            system_name,
+            system_version,
+            distro_name,
+            distro_version,
+        ) = parse_details(row[1])
+
         # print(row[1])
         # print(row[1].DETAILS_ALL)
-        # is_ci = is_ci_install(row[1].DETAILS_ALL)
-        # parse_python_from_string(row[1].DETAILS_ALL)
-        # print(row)
-        # obj = PyPi(
-        #     timestamp=row[1].TIMESTAMP,
-        #     country_code=row[1].COUNTRY_CODE,
-        #     project=row[1].PROJECT,
-        #     version=row[1].FILE_VERSION,
-        #     python_version=row[1].python,
-        #     system_name=row[1].system,
-        #     system_release=row[1].system_release,
-        #     distro_name=row[1].distro_name,
-        #     distro_version=row[1].distro_version,
-        #     wheel=row[1].FILE_TYPE == "bdist_wheel",
-        #     ci_install=is_ci,
-        # )
-        # print(obj)
-        # if row[0] > 10:
-        #     break
+        is_ci = is_ci_install(row[1].DETAILS_ALL)
+        parse_python_from_string(row[1].DETAILS_ALL)
+        obj = PyPi(
+            timestamp=row[1].TIMESTAMP,
+            country_code=row[1].COUNTRY_CODE,
+            project=row[1].PROJECT,
+            version=row[1].FILE_VERSION,
+            python_version=python_version,
+            system_name=system_name,
+            system_release=system_version,
+            distro_name=distro_name,
+            distro_version=distro_version,
+            wheel=row[1].FILE_TYPE == "bdist_wheel",
+            ci_install=is_ci,
+        )
 
 
 def main():
