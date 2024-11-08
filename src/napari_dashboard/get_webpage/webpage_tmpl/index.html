@@ -530,6 +530,8 @@
             <ul class="nav nav-tabs" id="map_tab" role="tablist">
                 {{ tab_header("Napari download map", "active") }}
                 {{ tab_header("High resolution napari download map") }}
+                {{ tab_header("Last 30 days download map") }}
+                {{ tab_header("High resolution last 30 days download map") }}
             </ul>
             <div class="tab-content" id="plots">
                 {% call tab_content("Napari download map", "show active") %}
@@ -537,6 +539,12 @@
                 {% endcall %}
                 {% call tab_content("High resolution napari download map") %}
                 {{ download_map_high_res }}
+                {% endcall %}
+                {% call tab_content("Last 30 days download map") %}
+                {{ download_map_last_month }}
+                {% endcall %}
+                {% call tab_content("High resolution last 30 days download map") %}
+                {{ download_map_last_month_high_res }}
                 {% endcall %}
             </div>
 
@@ -764,7 +772,7 @@
             {% endfor %}
 
             <div>
-                Source data for this statistics is available <a href="https://docs.google.com/spreadsheets/d/107iO-Y17fVQdM76iLQqVnNiQqvAvogR7/edit?usp=drive_link&ouid=100489959545961481533&rtpof=true&sd=true">here</a>
+                Source data for this statistics is available <a href="https://drive.google.com/file/d/1ZLkYVueEgg2E3Y50KUuBEg_f5YpFejnw/view?usp=drive_link">here</a>
             </div>
         </main>
     </div>

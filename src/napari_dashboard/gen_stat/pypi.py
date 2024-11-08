@@ -1,18 +1,24 @@
+from __future__ import annotations
+
 import math
+import typing
 from datetime import date, timedelta
 
 import pycountry
 from packaging.version import parse as parse_version
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, null
 
 from napari_dashboard.db_schema.pypi import (
     PackageRelease,
     PePyDownloadStat,
     PePyTotalDownloads,
+    PyPi,
     PyPiDownloadPerOS,
     PyPiDownloadPerPythonVersion,
 )
+
+if typing.TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
 
 def get_active_packages(session: Session, packages: set[str], threshold: int):
@@ -167,7 +173,7 @@ def is_country(x):
 
 
 def add_country_info(row):
-    country_info = pycountry.countries.get(alpha_2=row.COUNTRY_CODE)
+    country_info = pycountry.countries.get(alpha_2=row.country_code)
     if country_info is None:
         print(row)
     return country_info.alpha_3, country_info.name
@@ -184,3 +190,22 @@ def add_plot_info(df):
         )
 
     return _add_plot_info
+
+
+def get_per_country_download(
+    session: Session, package: str, since: date | None = None
+):
+    query = (
+        session.query(
+            PyPi.country_code, func.count(PyPi.country_code).label("count")
+        )
+        .filter(PyPi.project == package)
+        # filter out ci downloads
+        .filter(PyPi.ci_install.isnot(True))
+        # filter out None country code
+        .filter(PyPi.country_code.isnot(null()))
+    )
+    if since is not None:
+        query = query.filter(PyPi.timestamp >= since)
+    query = query.group_by(PyPi.country_code)
+    return query.all()

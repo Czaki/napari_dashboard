@@ -25,7 +25,7 @@ from sqlalchemy import (
     PrimaryKeyConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import JSON, Date, DateTime, String
+from sqlalchemy.types import Boolean, Date, DateTime, String
 
 from napari_dashboard.db_schema.base import Base
 
@@ -36,12 +36,15 @@ class PyPi(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     country_code: Mapped[Optional[str]] = mapped_column(String)
-    url: Mapped[str] = mapped_column(String)
     project: Mapped[str] = mapped_column(String)
-    file: Mapped[dict] = mapped_column(JSON)
-    details: Mapped[dict] = mapped_column(JSON)
-    tls_protocol: Mapped[str] = mapped_column(String)
-    tls_cipher: Mapped[str] = mapped_column(String)
+    version: Mapped[str] = mapped_column(String)
+    python_version: Mapped[str] = mapped_column(String)
+    system_name: Mapped[str] = mapped_column(String)
+    system_release: Mapped[str] = mapped_column(String)
+    distro_name: Mapped[str] = mapped_column(String)
+    distro_version: Mapped[str] = mapped_column(String)
+    wheel: Mapped[bool] = mapped_column(Boolean)
+    ci_install: Mapped[bool] = mapped_column(Boolean)
 
 
 class PePyDownloadStat(Base):

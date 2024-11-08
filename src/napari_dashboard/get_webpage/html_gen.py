@@ -1,6 +1,5 @@
 import datetime
 import math
-import os.path
 from pathlib import Path
 
 import pandas as pd
@@ -33,6 +32,7 @@ from napari_dashboard.gen_stat.pypi import (
     get_download_per_operating_system,
     get_download_per_python_version,
     get_pepy_download_per_day,
+    get_per_country_download,
     get_recent_releases_date,
     get_total_pypi_download,
     is_country,
@@ -331,11 +331,9 @@ def generate_os_pie_chart(python_version_info):
     )
 
 
-def _generate_download_map():
-    data = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), "data", "countries.csv")
-    )
-    data = data[data.COUNTRY_CODE.map(is_country)]
+def _generate_download_map(data):
+    data = pd.DataFrame(data)
+    data = data[data.country_code.map(is_country)]
     data[["iso_alpha", "country_name"]] = data.apply(
         add_country_info, axis=1, result_type="expand"
     )
@@ -367,14 +365,14 @@ def _generate_download_map():
     )
 
 
-def generate_download_map():
-    return _generate_download_map().to_html(
+def generate_download_map(data):
+    return _generate_download_map(data).to_html(
         full_html=False, include_plotlyjs="cdn"
     )
 
 
-def generate_download_map_high_res():
-    fig = _generate_download_map()
+def generate_download_map_high_res(data):
+    fig = _generate_download_map(data)
     fig.update_geos(
         resolution=50  # Values can be 110 (low), 50 (medium), or 10 (high) - higher is more detailed
     )
@@ -406,6 +404,7 @@ def generate_webpage(
         If True save the data to excel
     """
     target_path.mkdir(parents=True, exist_ok=True)
+    print(f"target path {target_path.absolute()}")
     print(f"db path {db_path.absolute()}, sqlite://{db_path.absolute()}")
     engine = create_engine(f"sqlite:///{db_path.absolute()}")
     setup_cache(timeout=60 * 60 * 4)
@@ -457,6 +456,12 @@ def generate_webpage(
             session, "napari", since_date
         )
         last_week_summary = get_weekly_summary_of_activity(session)
+        all_downloads = get_per_country_download(session, "napari")
+        last_month_downloads = get_per_country_download(
+            session,
+            "napari",
+            datetime.date.today() - datetime.timedelta(days=30),
+        )
 
     # Data to be rendered
     data = {
@@ -496,8 +501,12 @@ def generate_webpage(
         "pr_activity_plot4": generate_pull_request_plot4(stats, since_date),
         "pr_activity_plot5": generate_pull_request_plot5(stats, since_date),
         "stars_plot": generate_stars_plot(stars),
-        "download_map": generate_download_map(),
-        "download_map_high_res": generate_download_map_high_res(),
+        "download_map": generate_download_map(all_downloads),
+        "download_map_high_res": generate_download_map_high_res(all_downloads),
+        "download_map_last_month": generate_download_map(last_month_downloads),
+        "download_map_last_month_high_res": generate_download_map_high_res(
+            last_month_downloads
+        ),
         "last_week_summary": last_week_summary,
         "last_week_range": get_last_week(),
     }

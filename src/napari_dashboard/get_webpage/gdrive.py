@@ -2,6 +2,7 @@ import bz2
 import hashlib
 import logging
 import os.path
+from pathlib import Path
 
 from pydrive2.auth import GoogleAuth
 from pydrive2.drive import GoogleDrive
@@ -129,21 +130,23 @@ def uncompressed_file(compressed_file_path, original_file_path):
         original_file.writelines(compressed_file)
 
 
-def fetch_database():
+def fetch_database(db_path="dashboard.db"):
     logging.info("fetching database")
 
+    db_path = Path(db_path)
+    archive_path = db_path.with_suffix(".db.bz2")
     db_file = get_db_file()
     if db_file is not None:
         db_file.FetchMetadata(fields="md5Checksum")
         if not (
-            os.path.exists("dashboard.db.bz2")
-            and calculate_md5("dashboard.db.bz2") == db_file["md5Checksum"]
+            archive_path.exists()
+            and calculate_md5(archive_path) == db_file["md5Checksum"]
         ):
             logging.info("download database")
 
-            db_file.GetContentFile("dashboard.db.bz2")
+            db_file.GetContentFile(archive_path)
             logging.info("uncompressing database")
-            uncompressed_file("dashboard.db.bz2", "dashboard.db")
+            uncompressed_file(archive_path, db_path)
     else:
         logging.info("Database not found")
 
@@ -153,13 +156,13 @@ def main():
     print("Updating database")
     db_update_main(["dashboard.db"])
     print("generating webpage")
-    get_webpage_main(["webpage", "dashboard.db"])
+    get_webpage_main(["webpage", "dashboard.db", "--no-excel-dump"])
     print("Compressing database")
     compress_file("dashboard.db", "dashboard.db.bz2")
     print("Uploading database")
     upload_upload_db_dump()
-    print("Uploading xlsx dump")
-    upload_upload_xlsx_dump()
+    # print("Uploading xlsx dump")
+    # upload_upload_xlsx_dump()
 
 
 if __name__ == "__main__":

@@ -38,6 +38,7 @@ dependencies = [
     "XlsxWriter",
     "pycountry",
     "zulip",
+    "google-cloud-bigquery"
 ]
 
 [project.urls]
