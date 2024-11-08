@@ -1,3 +1,4 @@
+from __future__ import annotations
 import math
 from datetime import date, timedelta
 
@@ -12,6 +13,7 @@ from napari_dashboard.db_schema.pypi import (
     PePyTotalDownloads,
     PyPiDownloadPerOS,
     PyPiDownloadPerPythonVersion,
+    PyPi
 )
 
 
@@ -184,3 +186,18 @@ def add_plot_info(df):
         )
 
     return _add_plot_info
+
+
+def get_per_country_download(session: Session, package: str, since: date | None):
+    query = (
+        session.query(
+            PyPi.country_code,
+            func.count(PyPi.country_code).label("count"),
+        )
+        .filter(PyPi.project == package)
+
+    )
+    if since is not None:
+        query = query.filter(PyPi.timestamp >= since)
+    query = query.group_by(PyPi.country_code)
+    return query.all()

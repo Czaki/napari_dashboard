@@ -35,7 +35,7 @@ from napari_dashboard.gen_stat.pypi import (
     get_pepy_download_per_day,
     get_recent_releases_date,
     get_total_pypi_download,
-    is_country,
+    is_country, get_per_country_download,
 )
 from napari_dashboard.utils import requests_get
 
@@ -331,11 +331,8 @@ def generate_os_pie_chart(python_version_info):
     )
 
 
-def _generate_download_map():
-    data = pd.read_csv(
-        os.path.join(os.path.dirname(__file__), "data", "countries.csv")
-    )
-    data = data[data.COUNTRY_CODE.map(is_country)]
+def _generate_download_map(data):
+    data = data[data.country_code.map(is_country)]
     data[["iso_alpha", "country_name"]] = data.apply(
         add_country_info, axis=1, result_type="expand"
     )
@@ -367,14 +364,14 @@ def _generate_download_map():
     )
 
 
-def generate_download_map():
-    return _generate_download_map().to_html(
+def generate_download_map(data):
+    return _generate_download_map(data).to_html(
         full_html=False, include_plotlyjs="cdn"
     )
 
 
-def generate_download_map_high_res():
-    fig = _generate_download_map()
+def generate_download_map_high_res(data):
+    fig = _generate_download_map(data)
     fig.update_geos(
         resolution=50  # Values can be 110 (low), 50 (medium), or 10 (high) - higher is more detailed
     )
@@ -457,6 +454,8 @@ def generate_webpage(
             session, "napari", since_date
         )
         last_week_summary = get_weekly_summary_of_activity(session)
+        all_downloads = get_per_country_download(session, "napari")
+        last_period_downloads = get_per_country_download(session, "napari", since_date)
 
     # Data to be rendered
     data = {

@@ -1,12 +1,22 @@
+from __future__ import annotations
+
+import argparse
 import os.path
 from dataclasses import dataclass
-from importlib.metadata import distribution
+from pathlib import Path
+import datetime
+
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session
+
 from tqdm import tqdm
 
 import pandas as pd
 from packaging import version
 
 from napari_dashboard.db_schema.pypi import PyPi
+from napari_dashboard.db_schema.base import Base
+from napari_dashboard.get_webpage.gdrive import compress_file
 
 QUERRY = """
 SELECT
@@ -299,42 +309,55 @@ def parse_details(row):
     )
 
 
-def load_from_czi_file(czi_file: str) -> pd.DataFrame:
+def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
     dkt = {"Darwin": False, "Linux": False, "Windows": False}
     df = pd.read_csv(czi_file)
-    for row in tqdm(df.iterrows(), total=len(df)):
-        (
-            python_version,
-            python_implementation,
-            python_implementation_version,
-            system_name,
-            system_version,
-            distro_name,
-            distro_version,
-        ) = parse_details(row[1])
+    with Session(engine) as session:
+        for row in tqdm(df.iterrows(), total=len(df)):
+            (
+                python_version,
+                python_implementation,
+                python_implementation_version,
+                system_name,
+                system_version,
+                distro_name,
+                distro_version,
+            ) = parse_details(row[1])
 
-        # print(row[1])
-        # print(row[1].DETAILS_ALL)
-        is_ci = is_ci_install(row[1].DETAILS_ALL)
-        parse_python_from_string(row[1].DETAILS_ALL)
-        obj = PyPi(
-            timestamp=row[1].TIMESTAMP,
-            country_code=row[1].COUNTRY_CODE,
-            project=row[1].PROJECT,
-            version=row[1].FILE_VERSION,
-            python_version=python_version,
-            system_name=system_name,
-            system_release=system_version,
-            distro_name=distro_name,
-            distro_version=distro_version,
-            wheel=row[1].FILE_TYPE == "bdist_wheel",
-            ci_install=is_ci,
-        )
+            # print(row[1])
+            # print(row[1].DETAILS_ALL)
+            is_ci = is_ci_install(row[1].DETAILS_ALL)
+            parse_python_from_string(row[1].DETAILS_ALL)
+            obj = PyPi(
+                timestamp=datetime.datetime.strptime(row[1].TIMESTAMP,'%Y-%m-%d %H:%M:%S.%f'),
+                country_code=row[1].COUNTRY_CODE,
+                project=row[1].PROJECT,
+                version=row[1].FILE_VERSION,
+                python_version=python_version,
+                system_name=system_name,
+                system_release=system_version,
+                distro_name=distro_name,
+                distro_version=distro_version,
+                wheel=row[1].FILE_TYPE == "bdist_wheel",
+                ci_install=is_ci,
+            )
+            session.add(obj)
+            session.commit()
 
 
-def main():
+def main(args: None | list[str]=None):
     # load_from_query_file("data/bquxjob_510c5b0e_193014da029.csv")
-    load_from_czi_file("data/bigquery_installs_2024-10-01.csv")
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("db_path", help="Path to the database", type=Path)
+    args = parser.parse_args(args)
+
+    engine = create_engine(f"sqlite:///{args.db_path.absolute()}")
+    Base.metadata.create_all(engine)
+
+
+    # load_from_czi_file("data/bigquery_installs_2024-10-01.csv", engine)
+    compress_file("dashboard.db", "dashboard2.db.bz2")
 
 
 if __name__ == "__main__":
