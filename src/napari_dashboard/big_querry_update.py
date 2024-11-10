@@ -64,8 +64,10 @@ def parse_file_name(file_name: str) -> ProjectInfo:
     """
     name, ext = os.path.splitext(file_name)
     wheel = ext == ".whl"
+    if ext == ".gz":
+        name = os.path.splitext(name)[0]
 
-    name, version_, _ = file_name.split("-", 2)
+    name, version_ = name.split("-", 2)[:2]
     return ProjectInfo(name, version.parse(version_), wheel)
 
 
