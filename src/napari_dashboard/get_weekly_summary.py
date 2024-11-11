@@ -37,7 +37,7 @@ def generate_weekly_summary(fetch_db: bool) -> list[str]:
             res.append("\n## Merged Pull Requests\n")
             res.extend(f" - {text}" for text in merged_pr)
         if closed_pr := get_last_week_closed_pr_md(session):
-            res.append("\n## Closed Pull Requests (merged)\n")
+            res.append("\n## Closed Pull Requests (unmerged)\n")
             res.extend(f" - {text}" for text in closed_pr)
         if new_issue := get_last_week_new_issues_md(session):
             res.append("\n## New Issues\n")
