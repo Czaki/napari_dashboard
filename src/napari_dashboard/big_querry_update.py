@@ -17,7 +17,7 @@ import humanize
 
 from napari_dashboard.db_schema.base import Base
 from napari_dashboard.db_schema.pypi import PyPi
-from napari_dashboard.get_webpage.gdrive import fetch_database, compress_file, upload_upload_db_dump
+from napari_dashboard.get_webpage.gdrive import fetch_database, compress_file, upload_db_dump
 
 PROCESSED_BYTES_LIMIT = 1000 ** 4 - 50 * 1000 ** 3
 
@@ -426,11 +426,13 @@ def get_information_about_processed_bytes():
     client = bigquery.Client()
 
     now = datetime.datetime.now(datetime.timezone.utc)
-    seven_days_ago = now - datetime.timedelta(days=7)
+    month_begin = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
 
     total_bytes_processed = 0
     # List recent jobs
-    for job in client.list_jobs(all_users=True, min_creation_time=seven_days_ago):
+    for job in client.list_jobs(all_users=True, min_creation_time=month_begin):
+        if job.error_result is not None and job.total_bytes_processed is None:
+            continue
         total_bytes_processed += job.total_bytes_processed
 
     return total_bytes_processed
@@ -479,7 +481,7 @@ def main(args: None | list[str] = None):
         return -2
     compress_file("dashboard.db", "dashboard.db.bz2")
     print("Uploading database")
-    upload_upload_db_dump()
+    upload_db_dump()
 
 
 if __name__ == "__main__":

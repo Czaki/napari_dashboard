@@ -82,14 +82,14 @@ def get_or_create_gdrive_file(drive, file_name):
     raise ValueError("Folder not found")
 
 
-def upload_upload_xlsx_dump():
+def upload_xlsx_dump():
     drive = GoogleDrive(get_auth())
     file = get_or_create_gdrive_file(drive, "napari_dashboard.xlsx")
     file.SetContentFile("webpage/napari_dashboard.xlsx")
     file.Upload()
 
 
-def upload_upload_db_dump():
+def upload_db_dump():
     drive = GoogleDrive(get_auth())
     file = get_or_create_gdrive_file(drive, "dashboard.db.bz2")
     file.SetContentFile("dashboard.db.bz2")
@@ -160,7 +160,7 @@ def main():
     print("Compressing database")
     compress_file("dashboard.db", "dashboard.db.bz2")
     print("Uploading database")
-    upload_upload_db_dump()
+    upload_db_dump()
     # print("Uploading xlsx dump")
     # upload_upload_xlsx_dump()
 
