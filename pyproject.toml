@@ -27,18 +27,21 @@ classifiers = [
   "Programming Language :: Python :: Implementation :: PyPy",
 ]
 dependencies = [
-    "sqlalchemy",
-    "tqdm",
-    "pygithub",
-    "requests_cache",
+    "db-dtypes",
+    "google-cloud-bigquery",
+    "google-cloud-bigquery-storage",
+    "humanize",
     "jinja2",
     "pandas",
     "plotly",
-    "PyDrive2",
-    "XlsxWriter",
     "pycountry",
+    "PyDrive2",
+    "pygithub",
+    "requests_cache",
+    "sqlalchemy",
+    "tqdm",
+    "XlsxWriter",
     "zulip",
-    "google-cloud-bigquery"
 ]
 
 [project.urls]

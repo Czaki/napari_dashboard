@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import os.path
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -12,10 +13,14 @@ from packaging import version
 from sqlalchemy import Engine, create_engine, func
 from sqlalchemy.orm import Session
 from tqdm import tqdm
+import humanize
 
 from napari_dashboard.db_schema.base import Base
 from napari_dashboard.db_schema.pypi import PyPi
-from napari_dashboard.get_webpage.gdrive import fetch_database
+from napari_dashboard.get_webpage.gdrive import fetch_database, compress_file, upload_upload_db_dump
+
+PROCESSED_BYTES_LIMIT = 1000 ** 4 - 50 * 1000 ** 3
+
 
 QUERRY = """
 SELECT
@@ -362,7 +367,7 @@ def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
         session.commit()
 
 
-def save_query_result(engine: Engine):
+def make_big_query_and_save_to_database(engine: Engine, transferred_bytes: int):
     with Session(engine) as session:
         # get maximum timestamp
         last_entry_date = session.query(func.max(PyPi.timestamp)).first()[0]
@@ -390,10 +395,65 @@ def save_query_result(engine: Engine):
     # gauth = login_with_local_webserver()
     client = bigquery.Client()  # credentials=gauth.credentials)
     bq_storage_client = bigquery_storage.BigQueryReadClient()
+    job_config = bigquery.QueryJobConfig(dry_run=True, use_query_cache=False)
+    estimate_query_job = client.query(qr, job_config=job_config)
+    estimated_bytes = int(estimate_query_job.total_bytes_processed)
+    if transferred_bytes + estimated_bytes > PROCESSED_BYTES_LIMIT:
+        send_zulip_message(
+            "The estimated download size is more than the limit. Skip the update. "
+            f"Currently processed bytes: {humanize.naturalsize(transferred_bytes)}. "
+            f"Estimated bytes to processed query: {humanize.naturalsize(estimated_bytes)}. "
+            f"Limit: {humanize.naturalsize(PROCESSED_BYTES_LIMIT)}."
+        )
+        return False
     query_job = client.query(qr)
+
     results = query_job.result()
     df = results.to_dataframe(bqstorage_client=bq_storage_client)
     load_from_query(df, engine)
+    processed_bytes = int(query_job.total_bytes_processed)
+    send_zulip_message(
+        f"Downloaded data from big query. Processed bytes {humanize.naturalsize(processed_bytes)}. "
+        f"This makes total processed bytes growth from {humanize.naturalsize(transferred_bytes)} to "
+        f"{humanize.naturalsize(transferred_bytes + processed_bytes)}. "
+        f"The estimated size of the query was {humanize.naturalsize(estimated_bytes)}."
+    )
+    return True
+
+
+def get_information_about_processed_bytes():
+    # Initialize the client
+    client = bigquery.Client()
+
+    now = datetime.datetime.now(datetime.timezone.utc)
+    seven_days_ago = now - datetime.timedelta(days=7)
+
+    total_bytes_processed = 0
+    # List recent jobs
+    for job in client.list_jobs(all_users=True, min_creation_time=seven_days_ago):
+        total_bytes_processed += job.total_bytes_processed
+
+    return total_bytes_processed
+
+
+def send_zulip_message(message: str):
+    import zulip
+
+    client = zulip.Client(
+        email="dashboard-bot@napari.zulipchat.com",
+        api_key=os.environ.get("ZULIP_API_KEY"),
+        site="https://napari.zulipchat.com",
+    )
+
+
+    client.send_message(
+        {
+            "type": "stream",
+            "to": "metrics and analytics",
+            "subject": "Google big query download",
+            "content":message
+        }
+    )
 
 
 def main(args: None | list[str] = None):
@@ -401,16 +461,26 @@ def main(args: None | list[str] = None):
     parser.add_argument("db_path", help="Path to the database", type=Path)
     args = parser.parse_args(args)
 
+    processed_bytes = get_information_about_processed_bytes()
+
+    if processed_bytes > PROCESSED_BYTES_LIMIT:
+        send_zulip_message(
+            f"Totally processed: {humanize.naturalsize(processed_bytes)} "
+            f"is more than {humanize.naturalsize(PROCESSED_BYTES_LIMIT)} limit. "
+            "Skip the update"
+        )
+        return -1
+
     fetch_database(args.db_path)
     engine = create_engine(f"sqlite:///{args.db_path.absolute()}")
     Base.metadata.create_all(engine)
 
-    save_query_result(engine)
-
-    # load_from_czi_file("data/bigquery_installs_2024-10-01.csv", engine)
-
-    # compress_file(args.db_path.absolute(), args.db_path.absolute().parent/"dashboard3.db.bz2")
+    if not make_big_query_and_save_to_database(engine, processed_bytes):
+        return -2
+    compress_file("dashboard.db", "dashboard.db.bz2")
+    print("Uploading database")
+    upload_upload_db_dump()
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
