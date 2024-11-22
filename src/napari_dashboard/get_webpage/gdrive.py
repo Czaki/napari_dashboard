@@ -89,10 +89,10 @@ def upload_xlsx_dump():
     file.Upload()
 
 
-def upload_db_dump():
+def upload_db_dump(file_name="dashboard.db.bz2"):
     drive = GoogleDrive(get_auth())
-    file = get_or_create_gdrive_file(drive, "dashboard.db.bz2")
-    file.SetContentFile("dashboard.db.bz2")
+    file = get_or_create_gdrive_file(drive, file_name)
+    file.SetContentFile(file_name)
     file.Upload()
 
 

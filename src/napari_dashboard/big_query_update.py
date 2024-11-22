@@ -484,7 +484,7 @@ def main(args: None | list[str] = None):
 
     if not make_big_query_and_save_to_database(engine, processed_bytes):
         return -2
-    compress_file("dashboard.db", "dashboard.db.bz2")
+    compress_file(args.db_path, "dashboard.db.bz2")
     print("Uploading database")
     upload_db_dump()
     return 0
