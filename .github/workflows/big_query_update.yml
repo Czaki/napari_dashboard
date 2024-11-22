@@ -40,6 +40,7 @@ jobs:
         PEPY_KEY: ${{ secrets.PEPY_KEY }}
         GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}
         GOOGLE_APPLICATION_CREDENTIALS: service-secrets.json
+        ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
         # I'm using GH_TOKEN_ because using GITHUB_TOKEN during development crash gh app
 
     - name: Deploy Dashboard
