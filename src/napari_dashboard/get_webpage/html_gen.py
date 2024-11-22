@@ -261,7 +261,6 @@ def generate_pull_request_plot4(stats: dict, since: datetime.datetime):
         )
     )
     plot.update_layout(
-        # legend=LEGEND_POS,
         barmode="stack",
         yaxis_title="fraction of merged pull requests per week [%]",
     )
@@ -291,7 +290,6 @@ def generate_pull_request_plot5(stats: dict, since: datetime.datetime):
         )
     )
     plot.update_layout(
-        # legend=LEGEND_POS,
         yaxis_title="fraction of merged pull requests<br>that are feature/enhancement per week [%]"
     )
     return plot.to_html(full_html=False, include_plotlyjs="cdn")
@@ -332,6 +330,9 @@ def generate_os_pie_chart(python_version_info):
 
 
 def _generate_download_map(data):
+    """
+    Generate the download map as plotly choropleth
+    """
     data = pd.DataFrame(data)
     data = data[data.country_code.map(is_country)]
     data[["iso_alpha", "country_name"]] = data.apply(
@@ -366,12 +367,25 @@ def _generate_download_map(data):
 
 
 def generate_download_map(data):
+    """Generate the download map in high resolution
+
+    Convert the choropleth to a low resolution map in HTML format.
+    Such a map is faster to render in the browser, but does not contain
+    all the details.
+    For example, Singapore is not visible on the map.
+    """
     return _generate_download_map(data).to_html(
         full_html=False, include_plotlyjs="cdn"
     )
 
 
 def generate_download_map_high_res(data):
+    """Generate the download map in high resolution
+
+    Convert the choropleth to a high resolution map in HTML format.
+    Such a map is slower to render in the browser, but contains
+    all the details.
+    """
     fig = _generate_download_map(data)
     fig.update_geos(
         resolution=50  # Values can be 110 (low), 50 (medium), or 10 (high) - higher is more detailed
@@ -380,6 +394,7 @@ def generate_download_map_high_res(data):
 
 
 def get_plugin_info():
+    """Get plugin info from napari API"""
     return requests_get("https://api.napari.org/api/plugins").json()
 
 

@@ -3,9 +3,10 @@ import hashlib
 import logging
 import os.path
 from pathlib import Path
+from typing import Optional, Union
 
 from pydrive2.auth import GoogleAuth
-from pydrive2.drive import GoogleDrive
+from pydrive2.drive import GoogleDrive, GoogleDriveFile
 
 from napari_dashboard.db_update.__main__ import main as db_update_main
 from napari_dashboard.get_webpage.__main__ import main as get_webpage_main
@@ -32,13 +33,12 @@ def login_with_local_webserver():
     return gauth
 
 
-def login_with_service_account():
+def login_with_service_account() -> GoogleAuth:
     """
     Google Drive service with a service account.
     note: for the service account to work, you need to share the folder or
     files with the service account email.
 
-    :return: google auth
     """
     # Define the settings dict to use a service account
     # We also can use all options available for the settings dict like
@@ -63,7 +63,14 @@ def get_auth():
     return gauth
 
 
-def get_or_create_gdrive_file(drive, file_name):
+def get_or_create_gdrive_file(
+    drive: GoogleDrive, file_name: str, folder_name: str = "napari_dashboard"
+) -> GoogleDriveFile:
+    """
+    Get or create a file in a folder in Google Drive.
+
+    Returns the file object if file exists, otherwise creates a new file in the folder.
+    """
     file_list = drive.ListFile(
         {"q": f"title='{file_name}' and trashed=false"}
     ).GetList()
@@ -71,11 +78,11 @@ def get_or_create_gdrive_file(drive, file_name):
         return file_list[0]
     folders = drive.ListFile(
         {
-            "q": "title='napari_dashboard' and mimeType='application/vnd.google-apps.folder' and trashed=false"
+            "q": f"title='{folder_name}' and mimeType='application/vnd.google-apps.folder' and trashed=false"
         }
     ).GetList()
     for folder in folders:
-        if folder["title"] == "napari_dashboard":
+        if folder["title"] == folder_name:
             return drive.CreateFile(
                 {"title": file_name, "parents": [{"id": folder["id"]}]}
             )
@@ -96,7 +103,7 @@ def upload_db_dump(file_name="dashboard.db.bz2"):
     file.Upload()
 
 
-def get_db_file():
+def get_db_file() -> Optional[GoogleDriveFile]:
     drive = GoogleDrive(get_auth())
     file_list = drive.ListFile(
         {"q": "title='dashboard.db.bz2' and trashed=false"}
@@ -106,7 +113,7 @@ def get_db_file():
     return None
 
 
-def calculate_md5(file_path):
+def calculate_md5(file_path: Union[str, Path]) -> str:
     hash_md5 = hashlib.md5()
     with open(file_path, "rb") as f:
         for chunk in iter(lambda: f.read(4096), b""):
@@ -114,7 +121,7 @@ def calculate_md5(file_path):
     return hash_md5.hexdigest()
 
 
-def compress_file(original_file_path, compressed_file_path):
+def compress_file(original_file_path: str, compressed_file_path: str):
     with (
         open(original_file_path, "rb") as original_file,
         bz2.open(compressed_file_path, "wb") as compressed_file,
@@ -131,6 +138,7 @@ def uncompressed_file(compressed_file_path, original_file_path):
 
 
 def fetch_database(db_path="dashboard.db"):
+    """Fetch the database from Google Drive."""
     logging.info("fetching database")
 
     db_path = Path(db_path)
@@ -144,7 +152,7 @@ def fetch_database(db_path="dashboard.db"):
         ):
             logging.info("download database")
 
-            db_file.GetContentFile(archive_path)
+            db_file.GetContentFile(str(archive_path))
             logging.info("uncompressing database")
             uncompressed_file(archive_path, db_path)
     else:
@@ -152,17 +160,16 @@ def fetch_database(db_path="dashboard.db"):
 
 
 def main():
-    fetch_database()
+    dashboard_path = "dashboard.db"
+    fetch_database(dashboard_path)
     print("Updating database")
-    db_update_main(["dashboard.db"])
+    db_update_main([dashboard_path])
     print("generating webpage")
-    get_webpage_main(["webpage", "dashboard.db", "--no-excel-dump"])
+    get_webpage_main(["webpage", dashboard_path, "--no-excel-dump"])
     print("Compressing database")
-    compress_file("dashboard.db", "dashboard.db.bz2")
+    compress_file(dashboard_path, "dashboard.db.bz2")
     print("Uploading database")
     upload_db_dump()
-    # print("Uploading xlsx dump")
-    # upload_upload_xlsx_dump()
 
 
 if __name__ == "__main__":
