@@ -58,7 +58,7 @@ def update_github(session: Session):
     update_artifact_download("napari", "napari", session)
 
 
-def main(args: Sequence[str] | None = None):
+def main(args: Sequence[str] | None = None) -> bool:
     parser = argparse.ArgumentParser()
     parser.add_argument("db_path", help="Path to the database", type=Path)
     args = parser.parse_args(args)
@@ -72,7 +72,7 @@ def main(args: Sequence[str] | None = None):
     with Session(engine) as session:
         if check_if_recently_updated(session):
             logging.info("Database was recently updated, skipping update")
-            return
+            return False
         update_github(session)
         save_forum_info(session)
         save_conda_download_information(session)
@@ -81,6 +81,7 @@ def main(args: Sequence[str] | None = None):
         save_package_release(session)
         session.add(UpdateDBInfo(datetime=datetime.datetime.now()))
         session.commit()
+    return True
 
 
 if __name__ == "__main__":

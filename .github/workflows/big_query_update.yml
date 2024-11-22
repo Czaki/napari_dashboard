@@ -43,13 +43,6 @@ jobs:
         ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
         # I'm using GH_TOKEN_ because using GITHUB_TOKEN during development crash gh app
 
-    - name: Deploy Dashboard
-      uses: peaceiris/actions-gh-pages@v4
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./webpage
-        publish_branch: gh_pages
-
     - name: Send a stream message
       uses: zulip/github-actions-zulip/send-message@v1
       with:

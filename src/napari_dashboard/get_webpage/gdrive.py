@@ -163,13 +163,14 @@ def main():
     dashboard_path = "dashboard.db"
     fetch_database(dashboard_path)
     print("Updating database")
-    db_update_main([dashboard_path])
+    updated = db_update_main([dashboard_path])
     print("generating webpage")
     get_webpage_main(["webpage", dashboard_path, "--no-excel-dump"])
     print("Compressing database")
     compress_file(dashboard_path, "dashboard.db.bz2")
-    print("Uploading database")
-    upload_db_dump()
+    if updated:
+        print("Uploading database")
+        upload_db_dump()
 
 
 if __name__ == "__main__":

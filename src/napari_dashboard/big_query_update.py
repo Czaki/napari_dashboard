@@ -411,6 +411,7 @@ def make_big_query_and_save_to_database(
         hour=0, minute=0, second=0, microsecond=0
     )
     if upper_constraints - last_entry_date < datetime.timedelta(hours=10):
+        send_zulip_message("Too little time between the last entry and now")
         return None
     if upper_constraints - last_entry_date > datetime.timedelta(days=15):
         raise ValueError("Too much time between the last entry and now")
@@ -522,15 +523,15 @@ def main(args: None | list[str] = None):
         )
         return -1
 
-    fetch_database(args.db_path)
+    fetch_database(args.db_path.absolute())
     engine = create_engine(f"sqlite:///{args.db_path.absolute()}")
     Base.metadata.create_all(engine)
 
     if not make_big_query_and_save_to_database(engine, processed_bytes):
         return -2
-    compress_file(args.db_path, "dashboard.db.bz2")
+    compress_file(args.db_path.absolute(), "dashboard.db.bz2")
     print("Uploading database")
-    upload_db_dump()
+    upload_db_dump("dashboard.db.bz2")
     return 0
 
 
