@@ -64,8 +64,9 @@ def parse_file_name(file_name: str) -> ProjectInfo:
     Parameters
     ----------
     file_name: str
-        The name of the file to parse. The file need to be valid entry from
-        the PyPi database. For example:
+        The name of the file to parse.
+        The file needs to be a valid entry from the PyPi database.
+        For example:
         napari-0.5.4.tar.gz
         napari-0.5.4-py3-none-any.whl
 
@@ -87,7 +88,7 @@ def is_ci_install(system_release: str) -> bool:
     """Check if the download was performed on the CI system.
 
     It is done by check if the system_release string contains the information.
-    It catch only part of Linux distributions.
+    It catches only part of Linux distributions.
     """
     if "azure" in system_release:
         return True
@@ -137,6 +138,8 @@ def get_version_from_beginning(details: str, with_pre=True) -> tuple[str, str]:
     ----------
     details: str
         The string to parse
+    with_pre: bool
+        If True, the function will also parse the pre-release information
 
     Returns
     -------
@@ -246,8 +249,8 @@ def parse_system_from_string(details: str) -> tuple[str, str, str, str]:
         return "", "", "Darwin", distribution_version
 
     if distribution_name == "iOS":
-        name, version = get_name_from_begin(details)
-        return distribution_name, distribution_version, name, version
+        name, version_ = get_name_from_begin(details)
+        return distribution_name, distribution_version, name, version_
 
     if distribution_name in ("macOS", "OS X"):
         system_name, details = get_name_from_begin(details)
@@ -316,7 +319,7 @@ def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
 def parse_details(row):
     """Helper function for load_from_czi_file function"""
     # Parse strings like
-    # pip21.33.8.3CPython3.8.3Windows7OpenSSL 1.1.1f  31 Mar 202062.1.0
+    # pip21.33.8.3CPython3.8.3Windows7OpenSSL 1.1.1f 31 Mar 202062.1.0
     # pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
     # pip20.3.13.7.4CPython3.7.4macOS10.12.6Darwin16.7.0x86_64OpenSSL 1.1.1d  10 Sep 201951.0.0
 
@@ -345,7 +348,7 @@ def parse_details(row):
     )
 
 
-def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
+def load_from_czi_file(czi_file: str, engine) -> None:
     """
     This is a helper function to load the data from the file
     that we get from the CZI.
@@ -372,8 +375,6 @@ def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
                 distro_version,
             ) = parse_details(row[1])
 
-            # print(row[1])
-            # print(row[1].DETAILS_ALL)
             is_ci = is_ci_install(row[1].DETAILS_ALL)
             parse_python_from_string(row[1].DETAILS_ALL)
             obj = PyPi(
@@ -399,7 +400,7 @@ def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
 
 def make_big_query_and_save_to_database(
     engine: Engine, transferred_bytes: int
-):
+) -> bool:
     with Session(engine) as session:
         # get maximum timestamp
         last_entry_date = session.query(func.max(PyPi.timestamp)).first()[0]
@@ -412,11 +413,9 @@ def make_big_query_and_save_to_database(
     )
     if upper_constraints - last_entry_date < datetime.timedelta(hours=10):
         send_zulip_message("Too little time between the last entry and now")
-        return None
+        return True
     if upper_constraints - last_entry_date > datetime.timedelta(days=15):
         raise ValueError("Too much time between the last entry and now")
-
-    # upper_constraints = last_entry_date + datetime.timedelta(hours=1)
 
     qr = QUERRY.format(
         begin=last_entry_date.strftime("%Y-%m-%d %H:%M:%S"),
@@ -480,14 +479,13 @@ def get_information_about_processed_bytes() -> int:
 
 
 def send_zulip_message(message: str):
-    """
-    Send a message to the zulip chat
+    """Send a message to the zulip chat.
 
-    helper function for better readability
+    Helper function for better readability.
 
     Note
     ----
-    This function does not check length of the message.
+    This function does not check the length of the message.
     So if the message is too long, it will be cut off.
     """
     import zulip
