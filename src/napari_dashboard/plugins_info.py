@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import json
 import re
 from functools import lru_cache
-from urllib.request import Request, urlopen
 
 from napari_dashboard.utils import requests_get
 
@@ -34,4 +32,7 @@ def plugin_name_list() -> list[str]:
 
 
 def get_packages_to_fetch() -> list[str]:
+    """
+    Return a list of packages for which we would like to fetch the data
+    """
     return ["napari", "napari-plugin-manager", "npe2"] + plugin_name_list()

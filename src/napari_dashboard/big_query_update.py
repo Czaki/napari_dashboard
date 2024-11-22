@@ -25,8 +25,10 @@ from napari_dashboard.get_webpage.gdrive import (
 )
 
 PROCESSED_BYTES_LIMIT = 1000**4 - 50 * 1000**3
+# 950GB limit to ensure to fit in 1 TB free limit
 
 
+# The query template
 QUERRY = """
 SELECT
   timestamp,
@@ -82,6 +84,11 @@ def parse_file_name(file_name: str) -> ProjectInfo:
 
 
 def is_ci_install(system_release: str) -> bool:
+    """Check if the download was performed on the CI system.
+
+    It is done by check if the system_release string contains the information.
+    It catch only part of Linux distributions.
+    """
     if "azure" in system_release:
         return True
     if "amzn" in system_release:
@@ -96,6 +103,7 @@ def is_ci_install(system_release: str) -> bool:
 
 
 def load_from_query(df: pd.DataFrame, engine: Engine):
+    """Convert the data frame to the PyPi object and save it to the database"""
     with Session(engine) as session:
         for i, row in enumerate(df.iterrows()):
             project_info = parse_file_name(row[1].project)
@@ -121,8 +129,9 @@ def load_from_query(df: pd.DataFrame, engine: Engine):
 
 
 def get_version_from_beginning(details: str, with_pre=True) -> tuple[str, str]:
-    """
-    Get the version from the beginning of the string.
+    """Get the version from the beginning of the string.
+
+    Helper function for load_from_czi_file function
 
     Parameters
     ----------
@@ -151,8 +160,9 @@ def get_version_from_beginning(details: str, with_pre=True) -> tuple[str, str]:
 
 
 def get_name_from_begin(details: str) -> tuple[str, str]:
-    """
-    Get the name from the beginning of the string.
+    """Get the name from the beginning of the string.
+
+    Helper function for load_from_czi_file function
 
     Parameters
     ----------
@@ -172,8 +182,9 @@ def get_name_from_begin(details: str) -> tuple[str, str]:
 
 
 def parse_distro(distro: str):
-    """
-    Parse the distro string to get the name and version
+    """Parse the distro string to get the name and version
+
+    Helper function for load_from_czi_file function
 
     Parameters
     ----------
@@ -193,13 +204,14 @@ def parse_distro(distro: str):
                 if distro[j].isalpha():
                     distro_version = distro[i:j]
                     return distro_name, distro_version
-    else:
-        raise ValueError("No version found in distro string")
+
+    raise ValueError("No version found in distro string")
 
 
 def parse_system_from_string(details: str) -> tuple[str, str, str, str]:
-    """
-    Parse the system string to get the name and version
+    """Parse the system string to get the name and version
+
+    Helper function for load_from_czi_file function
 
     Parameters
     ----------
@@ -271,8 +283,9 @@ def parse_system_from_string(details: str) -> tuple[str, str, str, str]:
 
 
 def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
-    """
-    Split string like this:
+    """Split string like this:
+
+    Helper function for load_from_czi_file function
 
     pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
     """
@@ -301,6 +314,7 @@ def parse_python_from_string(details: str) -> tuple[str, str, str, str]:
 
 
 def parse_details(row):
+    """Helper function for load_from_czi_file function"""
     # Parse strings like
     # pip21.33.8.3CPython3.8.3Windows7OpenSSL 1.1.1f  31 Mar 202062.1.0
     # pip23.0.13.10.6CPython3.10.6Ubuntu22.04jammyglibc2.35Linux5.10.16.3-microsoft-standard-WSL2x86_64OpenSSL 3.0.2 15 Mar 202267.4.01.67.1
@@ -332,6 +346,17 @@ def parse_details(row):
 
 
 def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
+    """
+    This is a helper function to load the data from the file
+    that we get from the CZI.
+
+    It was used to not need to perform download of all historical data
+
+    Note
+    ----
+    This is not used in the current version of the code.
+    Keep it for the future use if we need to initialize the database again.
+    """
     df = pd.read_csv(czi_file)
     with Session(engine) as session:
         for i, row in tqdm(enumerate(df.iterrows()), total=len(df)):
@@ -428,7 +453,13 @@ def make_big_query_and_save_to_database(
     return True
 
 
-def get_information_about_processed_bytes():
+def get_information_about_processed_bytes() -> int:
+    """
+    Get the information about the processed bytes in the current month
+
+    Function performs the query to the Big Query to get the information about
+    the processed bytes
+    """
     # Initialize the client
     client = bigquery.Client()
 
@@ -448,6 +479,16 @@ def get_information_about_processed_bytes():
 
 
 def send_zulip_message(message: str):
+    """
+    Send a message to the zulip chat
+
+    helper function for better readability
+
+    Note
+    ----
+    This function does not check length of the message.
+    So if the message is too long, it will be cut off.
+    """
     import zulip
 
     client = zulip.Client(

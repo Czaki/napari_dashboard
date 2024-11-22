@@ -20,6 +20,10 @@ from napari_dashboard.get_webpage.gdrive import fetch_database
 
 
 def generate_weekly_summary(fetch_db: bool) -> list[str]:
+    """
+    Generate Markdown for the weekly summary.
+    It is served as a list of lines to easier split it in case of a long message.
+    """
     start, end = get_last_week()
     logging.basicConfig(level=logging.INFO)
     if fetch_db:
@@ -79,17 +83,23 @@ def main():
             site="https://napari.zulipchat.com",
         )
         result = client.register(event_types=["message", "realm"])
-        max_length = result["max_message_length"]
-        split_message = [[]]
+        max_length = result[
+            "max_message_length"
+        ]  # get information about the max length of a message in characters
+        message_in_parts = [[]]
+
         count = 0
         for line in message:
             line_length = len(line) + 1  # add 1 for newline
             if count + line_length > max_length:
+                # message is too long, split it
                 count = 0
-                split_message.append([])
-            split_message[-1].append(line)
+                message_in_parts.append([])
+            message_in_parts[-1].append(line)
             count += line_length
-        for message_li in split_message:
+
+        # send the message to the channel
+        for message_li in message_in_parts:
             content = "\n".join(message_li)
             client.send_message(
                 {
