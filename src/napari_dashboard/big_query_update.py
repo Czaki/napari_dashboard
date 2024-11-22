@@ -7,19 +7,23 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+import humanize
 import pandas as pd
 from google.cloud import bigquery, bigquery_storage
 from packaging import version
 from sqlalchemy import Engine, create_engine, func
 from sqlalchemy.orm import Session
 from tqdm import tqdm
-import humanize
 
 from napari_dashboard.db_schema.base import Base
 from napari_dashboard.db_schema.pypi import PyPi
-from napari_dashboard.get_webpage.gdrive import fetch_database, compress_file, upload_db_dump
+from napari_dashboard.get_webpage.gdrive import (
+    compress_file,
+    fetch_database,
+    upload_db_dump,
+)
 
-PROCESSED_BYTES_LIMIT = 1000 ** 4 - 50 * 1000 ** 3
+PROCESSED_BYTES_LIMIT = 1000**4 - 50 * 1000**3
 
 
 QUERRY = """
@@ -367,7 +371,9 @@ def load_from_czi_file(czi_file: str, engine) -> pd.DataFrame:
         session.commit()
 
 
-def make_big_query_and_save_to_database(engine: Engine, transferred_bytes: int):
+def make_big_query_and_save_to_database(
+    engine: Engine, transferred_bytes: int
+):
     with Session(engine) as session:
         # get maximum timestamp
         last_entry_date = session.query(func.max(PyPi.timestamp)).first()[0]
@@ -379,7 +385,7 @@ def make_big_query_and_save_to_database(engine: Engine, transferred_bytes: int):
         hour=0, minute=0, second=0, microsecond=0
     )
     if upper_constraints - last_entry_date < datetime.timedelta(hours=10):
-        return
+        return None
     if upper_constraints - last_entry_date > datetime.timedelta(days=15):
         raise ValueError("Too much time between the last entry and now")
 
@@ -447,13 +453,12 @@ def send_zulip_message(message: str):
         site="https://napari.zulipchat.com",
     )
 
-
     client.send_message(
         {
             "type": "stream",
             "to": "metrics and analytics",
             "subject": "Google big query download",
-            "content":message
+            "content": message,
         }
     )
 
@@ -482,6 +487,7 @@ def main(args: None | list[str] = None):
     compress_file("dashboard.db", "dashboard.db.bz2")
     print("Uploading database")
     upload_db_dump()
+    return 0
 
 
 if __name__ == "__main__":
