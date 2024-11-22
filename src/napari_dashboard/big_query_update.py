@@ -10,6 +10,7 @@ from pathlib import Path
 import humanize
 import pandas as pd
 from google.cloud import bigquery, bigquery_storage
+from google.cloud.bigquery import UnknownJob
 from packaging import version
 from sqlalchemy import Engine, create_engine, func
 from sqlalchemy.orm import Session
@@ -437,6 +438,8 @@ def get_information_about_processed_bytes():
     total_bytes_processed = 0
     # List recent jobs
     for job in client.list_jobs(all_users=True, min_creation_time=month_begin):
+        if isinstance(job, UnknownJob):
+            continue
         if job.error_result is not None and job.total_bytes_processed is None:
             continue
         total_bytes_processed += job.total_bytes_processed
