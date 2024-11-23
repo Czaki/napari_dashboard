@@ -42,6 +42,7 @@ dependencies = [
     "tqdm",
     "XlsxWriter",
     "zulip",
+    "traceback_with_variables",
 ]
 
 [project.urls]
