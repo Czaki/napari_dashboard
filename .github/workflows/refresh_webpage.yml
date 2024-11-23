@@ -50,7 +50,7 @@ jobs:
       if: ${{ always() }}
       id: set_zulip_message
       run: |
-        if [ ${{ success() }} ]; then
+        if [ "${{ job.status }}" == "success" ]; then
           echo "MESSAGE=Google big query finished successful" >> $GITHUB_ENV
         else
           echo "MESSAGE=Google big query failed" >> $GITHUB_ENV
@@ -116,7 +116,7 @@ jobs:
       if: ${{ always() }}
       id: set_zulip_message
       run: |
-        if [ ${{ success() }} ]; then
+        if [ "${{ job.status }}" == "success" ]; then
           echo "MESSAGE=API update successfully" >> $GITHUB_ENV
         else
           echo "MESSAGE=API update failed" >> $GITHUB_ENV
@@ -182,7 +182,7 @@ jobs:
         if: ${{ always() }}
         id: set_zulip_message
         run: |
-          if [ ${{ success() }} ]; then
+          if [ "${{ job.status }}" == "success" ]; then
             echo "MESSAGE=Dashboard deployed successfully" >> $GITHUB_ENV
           else
             echo "MESSAGE=Dashboard deployment failed" >> $GITHUB_ENV
