@@ -9,7 +9,68 @@ on:
     - cron: '0 8 * * *'
 
 jobs:
+  big_query_update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: 'write'
+      id-token: 'write'
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: 3.11
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    - name: create service-secrets.json
+      run: |
+        echo "$SERVICE_SECRETS" > service-secrets.json
+      env:
+        SERVICE_SECRETS: ${{ secrets.SERVICE_SECRETS }}
+    - name: Install dependencies
+      run: |
+        uv sync
+
+    - name: Build the dashboard
+      run: |
+        uv run traceback-with-variables napari_dashboard.big_query_update dashboard.db
+      env:
+        PEPY_KEY: ${{ secrets.PEPY_KEY }}
+        GH_TOKEN_: ${{ secrets.GITHUB_TOKEN }}
+        GOOGLE_APPLICATION_CREDENTIALS: service-secrets.json
+        ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
+        # I'm using GH_TOKEN_ because using GITHUB_TOKEN during development crash gh app
+
+    - name: Send a stream message
+      uses: zulip/github-actions-zulip/send-message@v1
+      with:
+        api-key: ${{ secrets.ZULIP_API_KEY }}
+        email: "dashboard-bot@napari.zulipchat.com"
+        organization-url: "https://napari.zulipchat.com"
+        to: "metrics and analytics"
+        type: "stream"
+        topic: "Google big query download"
+        content: "Google big query finished successful"
+
+    - name: Send a stream message
+      uses: zulip/github-actions-zulip/send-message@v1
+      if: ${{ failure() }}
+      with:
+        api-key: ${{ secrets.ZULIP_API_KEY }}
+        email: "dashboard-bot@napari.zulipchat.com"
+        organization-url: "https://napari.zulipchat.com"
+        to: "metrics and analytics"
+        type: "stream"
+        topic: "Google big query download"
+        content: "Google big query failed"
+
   build:
+    needs: big_query_update
     runs-on: ubuntu-latest
     timeout-minutes: 300
     permissions:
