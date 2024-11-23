@@ -24,3 +24,7 @@ def main(args: None | list[str] = None):
     fetch_database(args.db_path)
     print("Database fetched.")
     get_webpage_main(["webpage", args.db_path, "--no-excel-dump"])
+
+
+if __name__ == "__main__":
+    main()

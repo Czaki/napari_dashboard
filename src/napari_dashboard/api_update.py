@@ -35,3 +35,7 @@ def main(args: None | list[str] = None):
         print("Uploading database")
         compress_file(args.db_path, COMPRESSED_DB)
         upload_db_dump(COMPRESSED_DB)
+
+
+if __name__ == "__main__":
+    main()
