@@ -18,6 +18,7 @@ def main(args: None | list[str] = None):
         help="Path to the database",
         type=Path,
         default=Path(DB_PATH),
+        nargs="?",
     )
     args = parser.parse_args(args)
 
