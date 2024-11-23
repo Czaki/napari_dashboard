@@ -30,7 +30,7 @@ def main(args: None | list[str] = None):
 
     fetch_database(args.db_path)
     print("Database fetched.")
-    updated = db_update_main([args.db_path])
+    updated = db_update_main([str(args.db_path)])
     print(f"Database updated: {updated}")
     if updated:
         print("Uploading database")
