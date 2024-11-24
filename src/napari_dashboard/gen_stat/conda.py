@@ -99,3 +99,23 @@ def get_total_conda_download(session: Session, packages: set[str]):
         .filter(CondaDownload.date == last_date)
         .scalar()
     )
+
+
+def get_conda_download_per_day(session: Session, package: str) -> dict[datetime.date, int]:
+    query_res = (
+        session.query(CondaDownload.date, func.sum(CondaDownload.download_count))
+        .filter(CondaDownload.pypi_name == package)
+        .group_by(CondaDownload.date)
+        .order_by(CondaDownload.date)
+        .all()
+    )
+    res = {}
+    prev_date = query_res[0][0]
+    for i, (date, count) in enumerate(query_res[1:], start=1):
+        diff_days = (date - prev_date).days
+        download_per_day = (count - query_res[i-1][1]) / diff_days
+        for i in range(diff_days):
+            res[prev_date + datetime.timedelta(days=i+1)] = download_per_day
+        prev_date = date
+
+    return res

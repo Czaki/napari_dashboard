@@ -13,7 +13,7 @@ from napari_dashboard.db_update.util import setup_cache
 from napari_dashboard.gen_stat.conda import (
     get_conda_latest_download_info,
     get_conda_total_download_info,
-    get_total_conda_download,
+    get_total_conda_download, get_conda_download_per_day,
 )
 from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
 from napari_dashboard.gen_stat.github import (
@@ -444,6 +444,7 @@ def generate_webpage(
             session, ["napari", "npe2", "napari-plugin-manager"]
         )
         napari_downloads_per_day = get_pepy_download_per_day(session, "napari")
+        napari_conda_downloads_per_day = get_conda_download_per_day(session, "napari")
         active_plugin_stats = get_active_packages(
             session, packages=valid_plugins, threshold=1500
         )
@@ -484,12 +485,6 @@ def generate_webpage(
         "project": "Napari",
         "author": "Grzegorz Bokota",
         "stats": stats,
-        "napari_downloads_per_day_dates": [
-            x.isoformat() for x in napari_downloads_per_day
-        ],
-        "napari_downloads_per_day_values": list(
-            napari_downloads_per_day.values()
-        ),
         "today": datetime.datetime.now().strftime("%Y-%m-%d"),
         "base_day": since_date.strftime("%Y-%m-%d"),
         "pypi_downloads": pypi_download_info,
@@ -507,6 +502,9 @@ def generate_webpage(
         "os_plot": generate_os_pie_chart(os_info),
         "napari_downloads_per_day": generate_download_per_day(
             napari_downloads_per_day
+        ),
+        "napari_conda_downloads_per_day": generate_download_per_day(
+            napari_conda_downloads_per_day
         ),
         "issue_activity": generate_issue_plot(stats),
         "issue_activity2": generate_issue_plot2(stats),
