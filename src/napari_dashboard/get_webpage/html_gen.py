@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 
 from napari_dashboard.db_update.util import setup_cache
 from napari_dashboard.gen_stat.conda import (
+    get_conda_download_per_day,
     get_conda_latest_download_info,
     get_conda_total_download_info,
-    get_total_conda_download, get_conda_download_per_day, get_last_month_version_downloads_per_version,
+    get_last_month_version_downloads_per_version,
+    get_total_conda_download,
 )
 from napari_dashboard.gen_stat.generate_excel_file import generate_excel_file
 from napari_dashboard.gen_stat.github import (
@@ -315,7 +317,9 @@ def generate_download_per_day(napari_downloads_per_day):
     )
 
 
-def generate_version_pie_chart(python_version_info: list[tuple[str, int]], filter_value: int=0):
+def generate_version_pie_chart(
+    python_version_info: list[tuple[str, int]], filter_value: int = 0
+):
     df = pd.DataFrame(python_version_info, columns=["version", "downloads"])
     if filter_value > 0:
         df = df[df["downloads"] > filter_value]
@@ -446,8 +450,12 @@ def generate_webpage(
             session, ["napari", "npe2", "napari-plugin-manager"]
         )
         napari_downloads_per_day = get_pepy_download_per_day(session, "napari")
-        napari_conda_downloads_per_day = get_conda_download_per_day(session, "napari")
-        napari_conda_last_month_version_downloads = get_last_month_version_downloads_per_version(session, "napari")
+        napari_conda_downloads_per_day = get_conda_download_per_day(
+            session, "napari"
+        )
+        napari_conda_last_month_version_downloads = (
+            get_last_month_version_downloads_per_version(session, "napari")
+        )
         active_plugin_stats = get_active_packages(
             session, packages=valid_plugins, threshold=1500
         )
