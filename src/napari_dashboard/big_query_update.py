@@ -118,6 +118,7 @@ def load_from_query(df: pd.DataFrame, engine: Engine):
             # print(row)
             obj = PyPi(
                 timestamp=row[1].timestamp,
+                date=row[1].timestamp.date(),
                 country_code=row[1].country_code,
                 project=project_info.name,
                 version=str(project_info.version),
@@ -387,6 +388,9 @@ def load_from_czi_file(czi_file: str, engine) -> None:
                 timestamp=datetime.datetime.strptime(
                     row[1].TIMESTAMP, "%Y-%m-%d %H:%M:%S.%f"
                 ),
+                date=datetime.datetime.strptime(
+                    row[1].TIMESTAMP, "%Y-%m-%d %H:%M:%S.%f"
+                ).date(),
                 country_code=row[1].COUNTRY_CODE,
                 project=row[1].PROJECT,
                 version=row[1].FILE_VERSION,
