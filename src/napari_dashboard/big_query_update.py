@@ -510,7 +510,7 @@ def send_zulip_message(message: str):
         {
             "type": "stream",
             "to": "metrics and analytics",
-            "subject": "Google big query download",
+            "subject": "Deploy dashboard",
             "content": message,
         }
     )
