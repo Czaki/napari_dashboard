@@ -104,7 +104,7 @@ def is_ci_install(system_release: str) -> bool:
         return True
     if "gcp" in system_release:
         return True
-    if "cloud-amd64" in system_release:
+    if "cloud-amd64" in system_release:  # noqa: SIM103
         return True
     return False
 
