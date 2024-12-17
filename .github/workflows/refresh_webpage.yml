@@ -65,7 +65,7 @@ jobs:
         organization-url: "https://napari.zulipchat.com"
         to: "metrics and analytics"
         type: "stream"
-        topic: "Google big query download"
+        topic: "Deploy dashboard"
         content: ${{ env.MESSAGE }}
 
   fetch_api_data:
